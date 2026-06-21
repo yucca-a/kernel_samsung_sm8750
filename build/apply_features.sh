@@ -59,6 +59,65 @@ require_patch(){ # patchfile label
   find . -name '*.rej' -delete 2>/dev/null; find . -name '*.orig' -delete 2>/dev/null
 }
 
+fix_zeromount_task_mmu(){
+  python3 - <<'PY'
+import pathlib
+import sys
+
+p = pathlib.Path('fs/proc/task_mmu.c')
+if not p.exists():
+    sys.exit(0)
+
+lines = p.read_text().splitlines(keepends=True)
+clean = []
+i = 0
+while i < len(lines):
+    if (
+        lines[i].strip() == '#ifdef CONFIG_ZEROMOUNT'
+        and i + 2 < len(lines)
+        and 'zeromount_spoof_mmap_metadata(inode, &dev, &ino);' in lines[i + 1]
+        and lines[i + 2].strip() == '#endif'
+    ):
+        i += 3
+        continue
+    clean.append(lines[i])
+    i += 1
+
+hook = [
+    '#ifdef CONFIG_ZEROMOUNT\n',
+    '\t\tzeromount_spoof_mmap_metadata(inode, &dev, &ino);\n',
+    '#endif\n',
+]
+
+for start, line in enumerate(clean):
+    if line.startswith('\tif (file) {'):
+        for end in range(start + 1, len(clean)):
+            if clean[end].startswith('\t}'):
+                block = ''.join(clean[start:end])
+                if (
+                    'struct inode *inode' in block
+                    and 'dev = inode->i_sb->s_dev;' in block
+                    and 'ino = inode->i_ino;' in block
+                ):
+                    clean[end:end] = hook
+                    p.write_text(''.join(clean))
+                    sys.exit(0)
+                break
+
+raise SystemExit('ZeroMount task_mmu fixup failed: file-backed VMA block not found')
+PY
+  log "  ZeroMount task_mmu metadata hook fixed"
+}
+
+zeromount_core_present(){
+  [ -f fs/zeromount.c ] &&
+    [ -f include/linux/zeromount.h ] &&
+    grep -q 'config ZEROMOUNT' fs/Kconfig &&
+    grep -q 'CONFIG_ZEROMOUNT' fs/Makefile &&
+    grep -q 'zeromount_getname_hook' fs/namei.c &&
+    grep -q 'zeromount_inject_dents' fs/readdir.c
+}
+
 ############################################################
 log "1/7 ReSukiSU sources (KSU symlink must resolve at Kconfig time, even in lkm)"
 curl -LSs "$RESUKISU_SETUP" | bash -s main >/dev/null 2>&1
@@ -78,7 +137,12 @@ if [ "$MODE" = "resukisu" ]; then
   log "  Super-Builders ZeroMount patch @ $SUPER_BUILDERS_PIN"
   clone_pin "$SUPER_BUILDERS_URL" "$SUPER_BUILDERS_PIN" "$CACHE/super_builders" || exit 1
   SB_PATCHES="$CACHE/super_builders/android15-6.6/ReSukiSU/patches"
-  require_patch "$SB_PATCHES/60_zeromount-android15-6.6.patch" zeromount
+  if zeromount_core_present; then
+    log "=already zeromount"
+  else
+    require_patch "$SB_PATCHES/60_zeromount-android15-6.6.patch" zeromount
+  fi
+  fix_zeromount_task_mmu
 
   # Keep ReSukiSU/SUSFS SELinux hide intact. ReSukiSU detects the SUSFS
   # manual hook via kernel/tools/susfs_compat.mk and exposes the needed
