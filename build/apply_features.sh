@@ -18,7 +18,7 @@ set +e
 KROOT="$(pwd)"
 MODE="${MODE:-resukisu}"
 CACHE="${CACHE:-$KROOT/.build_cache}"
-SUSFS_PIN="${SUSFS_PIN:-8c6da8443a622c8e5dfdea621d306b5143b40d01}"  # susfs4ksu gki-android15-6.6 tip (bumped 2026-06-03: SUS_PATH errno + mnt_id defaults)
+SUSFS_PIN="${SUSFS_PIN:-84c8fd6929c0f9a0cdd78f707599b6d76f415d37}"  # susfs4ksu gki-android15-6.6 tip (bumped 2026-06-21)
 SUPER_BUILDERS_PIN="${SUPER_BUILDERS_PIN:-c2cb71614868fe742cbffee2b6f3126523432673}" # android15-6.6 ReSukiSU ZeroMount
 WILD_PIN="${WILD_PIN:-5a5d5d8}"
 SUSFS_URL=https://github.com/ShirkNeko/susfs4ksu.git
