@@ -15,7 +15,8 @@
 #   JOBS           parallel jobs (default: nproc)
 #   PACK           1 to pack an AnyKernel3 zip (needs ANYKERNEL_DIR)
 #   ANYKERNEL_DIR  path to an AnyKernel3 tree (default: ../AnyKernel3_s25)
-#   BUILD_NUM      override the random ab<number> build id
+#   BUILD_ID       override the short commit build id in the kernel name
+#   BUILD_NUM      legacy alias for BUILD_ID
 #
 set -e
 MODE="${1:-${MODE:-resukisu}}"
@@ -63,7 +64,7 @@ MODE="$MODE" CACHE="$KROOT/.build_cache" bash "$HERE/apply_features.sh"
 # ---- configure ----
 echo "=== configure ==="
 make -j"$JOBS" O="$OUT" $MAKE_ARGS stock_gki_defconfig >/dev/null
-BN="${BUILD_NUM:-$(shuf -i 100000000-999999999 -n 1)}"
+BUILD_ID="${BUILD_ID:-${BUILD_NUM:-$(git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)}}"
 rm -f localversion
 
 # common: drop Samsung security stack that conflicts with custom kernels
@@ -89,7 +90,7 @@ fi
 
 # shellcheck disable=SC2086
 ./scripts/config --file "$OUT/.config" $COMMON_DISABLE $MODE_CFG $COMMON_ENABLE \
-  -d LOCALVERSION_AUTO --set-str LOCALVERSION "-android15-${KMI_GEN}-YuccaA-abogki${BN}-4k"
+  -d LOCALVERSION_AUTO --set-str LOCALVERSION "-android15-${KMI_GEN}-YuccaA-${BUILD_ID}-4k"
 
 # baseband_guard LSM
 if grep -q '^CONFIG_LSM="' "$OUT/.config" && ! grep -q baseband_guard "$OUT/.config"; then

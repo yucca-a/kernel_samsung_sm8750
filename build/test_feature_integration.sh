@@ -33,6 +33,12 @@ require_grep 'ZEROMOUNT' "$BUILD" \
   "build.sh must enable/report CONFIG_ZEROMOUNT in resukisu mode"
 require_grep '\-d KSU \-d KSU_SUSFS \-d ZEROMOUNT' "$BUILD" \
   "build.sh must explicitly disable CONFIG_ZEROMOUNT in lkm mode"
+require_grep 'git rev-parse --short=7 HEAD' "$BUILD" \
+  "build.sh must derive the default build id from the source commit"
+require_grep 'YuccaA-\$\{BUILD_ID\}-4k' "$BUILD" \
+  "kernel localversion must use the short commit build id"
+reject_grep 'shuf -i|abogki' "$BUILD" \
+  "build.sh must not use random abogki build numbers"
 
 reject_grep 'fake_status.*NULL|ksu_selinux_hide_enabled\\).*&& 0|!ksu_selinux_hide_running/1|initialize_fake_status\\(\\);/\\(void\\)0' "$APPLY" \
   "apply_features.sh must not neutralise ReSukiSU/SUSFS SELinux hide"

@@ -126,7 +126,9 @@ out/arch/arm64/boot/Image                 # 当前模式产出的内核镜像
 ../SM8750_<tag>_<版本>_<MMDD>.zip          # PACK=1 时
 ```
 
-版本号形如 `6.6.138-android15-8-YuccaA-abogki<9位随机>-4k`。
+Release tag 形如 `sm8750-resukisu-d4985ff`；zip 产物仍保持
+`SM8750_resukisu_6.6.138_0614.zip` 这类命名。内核版本号形如
+`6.6.138-android15-8-YuccaA-d4985ff-4k`，其中 `d4985ff` 是源码短 commit。
 
 ---
 
@@ -140,7 +142,7 @@ out/arch/arm64/boot/Image                 # 当前模式产出的内核镜像
 | `JOBS` | `nproc` | 并行编译任务数 |
 | `PACK` | `0` | 设 `1` 打包 AnyKernel3 zip（需 `ANYKERNEL_DIR`） |
 | `ANYKERNEL_DIR` | `../AnyKernel3_s25` | AnyKernel3 模板目录 |
-| `BUILD_NUM` | 随机 | 固定版本号里的 `abogki` 编号 |
+| `BUILD_ID` | 当前源码短 commit | 固定版本号里的构建代号（`BUILD_NUM` 是兼容旧 CI 的别名） |
 | `SUSFS_PIN` | 见脚本 | 覆盖 susfs4ksu 的 commit |
 | `SUPER_BUILDERS_PIN` | 见脚本 | 覆盖 Super-Builders 的 ZeroMount patch commit |
 | `WILD_PIN` | `5a5d5d8` | 覆盖 WildKernels/kernel_patches 的 commit |
@@ -248,11 +250,11 @@ build/build.sh lkm        # pure kernel
 PACK=1 build/build.sh     # also pack an AnyKernel3 zip
 ```
 
-Output: `out/arch/arm64/boot/Image` from the selected mode and, with `PACK=1`, `../SM8750_<tag>_<ver>_<MMDD>.zip`. Release string: `6.6.138-android15-8-YuccaA-abogki<random>-4k`. Requires the Samsung `clang-r510928` prebuilts (`TOOLCHAIN_DIR` defaults to `../toolchain_samsung_sm8750/kernel_platform/prebuilts`) and network on first build; ccache is used automatically when present.
+Output: `out/arch/arm64/boot/Image` from the selected mode and, with `PACK=1`, `../SM8750_<tag>_<ver>_<MMDD>.zip`. Release tag example: `sm8750-resukisu-d4985ff`. Kernel release string example: `6.6.138-android15-8-YuccaA-d4985ff-4k`. Requires the Samsung `clang-r510928` prebuilts (`TOOLCHAIN_DIR` defaults to `../toolchain_samsung_sm8750/kernel_platform/prebuilts`) and network on first build; ccache is used automatically when present.
 
 ## ⚙️ Build switches
 
-Mode-driven — features are all on; the single `resukisu`/`lkm` arg gates KSU/SUSFS/ZeroMount. Env: `TOOLCHAIN_DIR`, `JOBS`, `PACK`, `ANYKERNEL_DIR`, `BUILD_NUM`, `SUSFS_PIN`, `SUPER_BUILDERS_PIN`, `WILD_PIN`, `CCACHE_DIR`, `CCACHE_MAXSIZE`.
+Mode-driven — features are all on; the single `resukisu`/`lkm` arg gates KSU/SUSFS/ZeroMount. Env: `TOOLCHAIN_DIR`, `JOBS`, `PACK`, `ANYKERNEL_DIR`, `BUILD_ID`, `SUSFS_PIN`, `SUPER_BUILDERS_PIN`, `WILD_PIN`, `CCACHE_DIR`, `CCACHE_MAXSIZE`.
 
 ## 🔐 Security & hardening
 
