@@ -11,7 +11,7 @@
 ![Kernel](https://img.shields.io/badge/Linux-6.6.138-f6a500)
 ![KMI](https://img.shields.io/badge/KMI-android15--8-9aa0a6)
 ![Base](https://img.shields.io/badge/Base-Google_ACK-4285f4)
-![Root](https://img.shields.io/badge/Root-ReSukiSU%20%2B%20SUSFS-c2185b)
+![Root](https://img.shields.io/badge/Root-ReSukiSU%20%2B%20SUSFS%20%2B%20ZeroMount-c2185b)
 ![License](https://img.shields.io/badge/License-GPL--2.0-2962ff)
 
 面向 **Galaxy S25**（以及 S25 Edge）的自定义内核，基于 **Google ACK `android15-6.6`**、叠加三星 vendor 源，并前向合并至最新 6.6.x LTS，搭载 Android 15（KMI generation 8）。
@@ -20,7 +20,7 @@
 
 本树是 **ACK-rebased** 的：通过为三星 vendor 包重建一个真实的 Google ACK 合并基线、再把 `android15-6.6` LTS `git merge` 进去得到（基线是真正的合并结果，而非重新 diff 的 tarball）。每个新的 LTS（6.6.139、6.6.140…）都在独立的 ACK 工作区里继续前向合并、再导出到这里。
 
-构建是 **mode-driven** 的：git 树是干净基线，**不**提交任何 KSU / SUSFS / Wild 补丁；`build/build.sh` 在编译期抓取并应用它们，同一份基线既能产出内置 root 版、也能产出纯净版，并保持对 ACK 的可持续前向合并。
+构建是 **mode-driven** 的：git 树是干净基线，**不**提交任何 KSU / SUSFS / ZeroMount / Wild 补丁；`build/build.sh` 在编译期抓取并应用它们，同一份基线既能产出内置 root 版、也能产出纯净版，并保持对 ACK 的可持续前向合并。
 
 ---
 
@@ -30,7 +30,7 @@
 
 - 🔓 **内置 Root** — ReSukiSU（KernelSU）直接编译进内核（`resukisu` 模式），刷完即 root；另有 `lkm` 纯净模式，root 留到刷入时再注入。
 - 🫥 **SUSFS 隐藏** — 把 root、挂载、路径从各类检测中隐藏起来。
-- 🧩 **KPM 内核模块** — 支持 SukiSU KPM（管理器里的"核心"）。
+- 🧭 **ZeroMount** — 配合 SUSFS 进一步收敛挂载检测面。
 - 📡 **Baseband-guard** — LSM 级保护 modem / vbmeta / dtbo，任何 root 用户都改不动。
 - 🔔 **Re:Kernel** — 内置，提供前后台 / 网络事件通知，便于省电与后台管控。
 - ⚡ **Wild 全套性能补丁** — F2FS/ext4 调优、内存与调度优化、唤醒/功耗优化、日志降噪一整套。
@@ -66,8 +66,8 @@
 
 | 模式 | 说明 |
 |---|---|
-| `resukisu`（默认） | 内置 ReSukiSU + SUSFS + KPM + 全套特性。 |
-| `lkm` | 纯净内核，不含 KSU/SUSFS/KPM；root 在刷入时由管理器给 `init_boot` 打补丁注入。 |
+| `resukisu`（默认） | 内置 ReSukiSU + SUSFS + ZeroMount + 全套特性。 |
+| `lkm` | 纯净内核，不含 KSU/SUSFS/ZeroMount；root 在刷入时由管理器给 `init_boot` 打补丁注入。 |
 
 > `lkm` 模式产出的 `Image` 是真正干净的（零 `ksu_` 字符串）；KernelSU 管理器在刷入时打补丁，运行时用 kprobes/kallsyms 注入未改动的 vmlinux。
 
@@ -79,12 +79,12 @@
 |---|:---:|:---:|---|
 | ReSukiSU（KernelSU） | 内置 | 刷入时注入 | [ReSukiSU/ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) |
 | SUSFS | ✅ | ❌¹ | [ShirkNeko/susfs4ksu](https://github.com/ShirkNeko/susfs4ksu)（`gki-android15-6.6`） |
-| KPM（SukiSU 补丁模块） | ✅ | ❌² | 内置 `build/patch_linux` |
+| ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android15-6.6/ReSukiSU`） |
 | Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
 | Re:Kernel | ✅ | ✅ | 内置 `build/features/rekernel` |
 | Wild 性能补丁 | ✅ | ✅ | [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) |
-| NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ³ |
-| Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ³ |
+| NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
+| Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
 | Unicode 绕过修复 | ✅ | ✅ | WildKernels |
 | NTFS3（+LZX/XPRESS） | ✅ | ✅ | mainline |
 | zram 默认 lz4 | ✅ | ✅ | config |
@@ -95,15 +95,14 @@
 | 三星安全栈禁用 | ✅ | ✅ | 构建期 `scripts/config` 覆盖 |
 
 ¹ `lkm` 模式关闭 SUSFS：`fs/susfs.c` 引用了仅在 `CONFIG_KSU=y` 时才链接的 `ksu_*` 符号。
-² `KPM` 依赖 KSU，纯 `lkm` 内核无法启用。
-³ 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 性能补丁」那一行（其自有的性能/降噪调优集）。
+² 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 性能补丁」那一行（其自有的性能/降噪调优集）。
 
 ---
 
 ## 🚀 编译
 
 ```bash
-# resukisu（默认）：内置 ReSukiSU + SUSFS + KPM + 全套特性
+# resukisu（默认）：内置 ReSukiSU + SUSFS + ZeroMount + 全套特性
 build/build.sh
 build/build.sh resukisu
 
@@ -123,7 +122,7 @@ PACK=1 build/build.sh
 产物：
 
 ```
-out/arch/arm64/boot/Image                 # 内核镜像（resukisu 模式经 patch_linux 打上 KPM）
+out/arch/arm64/boot/Image                 # 当前模式产出的内核镜像
 ../SM8750_<tag>_<版本>_<MMDD>.zip          # PACK=1 时
 ```
 
@@ -133,7 +132,7 @@ out/arch/arm64/boot/Image                 # 内核镜像（resukisu 模式经 pa
 
 ## ⚙️ 构建开关（环境变量）
 
-构建是 mode-driven 的：特性默认全开，只有 `resukisu` / `lkm` 这一个参数决定 KSU / SUSFS / KPM 是否编入。
+构建是 mode-driven 的：特性默认全开，只有 `resukisu` / `lkm` 这一个参数决定 KSU / SUSFS / ZeroMount 是否编入。
 
 | 变量 | 默认 | 作用 |
 |---|---|---|
@@ -143,6 +142,7 @@ out/arch/arm64/boot/Image                 # 内核镜像（resukisu 模式经 pa
 | `ANYKERNEL_DIR` | `../AnyKernel3_s25` | AnyKernel3 模板目录 |
 | `BUILD_NUM` | 随机 | 固定版本号里的 `abogki` 编号 |
 | `SUSFS_PIN` | 见脚本 | 覆盖 susfs4ksu 的 commit |
+| `SUPER_BUILDERS_PIN` | 见脚本 | 覆盖 Super-Builders 的 ZeroMount patch commit |
 | `WILD_PIN` | `5a5d5d8` | 覆盖 WildKernels/kernel_patches 的 commit |
 | `CCACHE_DIR` / `CCACHE_MAXSIZE` | `.ccache` / `2G` | ccache 缓存目录与上限 |
 
@@ -150,7 +150,7 @@ out/arch/arm64/boot/Image                 # 内核镜像（resukisu 模式经 pa
 
 ## 🔐 安全与硬化
 
-- `resukisu` 构建会**禁用**三星安全栈（UH / RKP / KDP / DEFEX / INTEGRITY / FIVE）以及 `TRIM_UNUSED_KSYMS`，否则它们会对抗内核级 root 或挡住模块导出符号。仅在编译**非 root** 内核时才应重新启用。
+- `build/build.sh` 会**禁用**三星安全栈（UH / RKP / KDP / DEFEX / INTEGRITY / FIVE）以及 `TRIM_UNUSED_KSYMS`，否则它们会对抗内核级 root 或挡住模块导出符号。当前两个模式都会应用这组构建期覆盖。
 - SUSFS / Unicode 修复 / IPv6 NAT 隐藏共同压制常见的 root 检测面。
 
 ---
@@ -167,7 +167,7 @@ GPL-2.0。本树派生自：
 
 - **Google ACK** `android15-6.6`（`android.googlesource.com/kernel/common`）。
 - **三星** 为 Galaxy S25（SM8750）发布的开源内核 —— 全部三星驱动/HAL 版权归三星所有，GPL-2.0。
-- **ReSukiSU / KernelSU**、**SukiSU KPM**、**SUSFS**（ShirkNeko）、**WildKernels** 补丁集、**Baseband-guard**（vc-teahouse）、**Re:Kernel** —— 各自遵循其许可。
+- **ReSukiSU / KernelSU**、**SUSFS**（ShirkNeko）、**ZeroMount**（Super-Builders）、**WildKernels** 补丁集、**Baseband-guard**（vc-teahouse）、**Re:Kernel** —— 各自遵循其许可。
 
 本仓库自身的贡献是 ACK↔三星合并基线的重建、LTS 前向合并的冲突解决、FUSE 修复以及 mode-driven 构建系统。原始的 ACK "submitting patches" 指南保留为 [`README.ACK.md`](README.ACK.md)。
 
@@ -188,14 +188,14 @@ A custom kernel for **Galaxy S25** (and S25 Edge), built on **Google ACK `androi
 
 This tree is **ACK-rebased**: it was produced by reconstructing a real Google ACK merge-base for the Samsung vendor drop and `git merge`-ing `android15-6.6` LTS into it (so the base is a true merge result, not a re-diffed tarball). Each new LTS (6.6.139, 6.6.140, …) is merged forward in a separate ACK workbench and re-exported here.
 
-The build is **mode-driven**: the git tree is a clean base with **no** KSU / SUSFS / Wild patches committed; `build/build.sh` fetches and applies them at build time, so one base produces either variant and stays easy to forward-merge against ACK.
+The build is **mode-driven**: the git tree is a clean base with **no** KSU / SUSFS / ZeroMount / Wild patches committed; `build/build.sh` fetches and applies them at build time, so one base produces either variant and stays easy to forward-merge against ACK.
 
 ## ✨ Highlights
 
 > All three trees (sm8550 / sm8650 / sm8750) share one feature set — available out of the box.
 
 - 🔓 **Built-in root** — ReSukiSU (KernelSU) compiled in (`resukisu`); or a clean `lkm` mode where root is injected at flash time.
-- 🫥 **SUSFS hiding** · 🧩 **KPM** · 📡 **Baseband-guard** · 🔔 **Re:Kernel**
+- 🫥 **SUSFS hiding** · 🧭 **ZeroMount** · 📡 **Baseband-guard** · 🔔 **Re:Kernel**
 - ⚡ **Full Wild performance patch set** — F2FS/ext4 tuning, mm & scheduler tweaks, wakeup/power optimizations, logspam silencing.
 - 🎮 **NTSync** (Wine/Proton) · 📦 **Droidspaces** (Linux containers) · 💾 **NTFS3** (+LZX/XPRESS)
 - 🗜️ **zram lz4 + FQ/BBR** · 📁 **Full tmpfs** (ACL/XATTR/INODE64) · 🕸️ **Full ipset suite**
@@ -214,8 +214,8 @@ Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is 
 
 ## 🌿 Modes
 
-- `resukisu` (default): built-in ReSukiSU + SUSFS + KPM + full set.
-- `lkm`: pure kernel (no KSU/SUSFS/KPM); root injected at flash time via the manager patching `init_boot`. The `Image` is genuinely vanilla (zero `ksu_` strings).
+- `resukisu` (default): built-in ReSukiSU + SUSFS + ZeroMount + full set.
+- `lkm`: pure kernel (no KSU/SUSFS/ZeroMount); root injected at flash time via the manager patching `init_boot`. The `Image` is genuinely vanilla (zero `ksu_` strings).
 
 ## 🧩 Feature matrix
 
@@ -223,12 +223,12 @@ Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is 
 |---|:---:|:---:|---|
 | ReSukiSU (KernelSU) | built-in | flash-time | ReSukiSU/ReSukiSU |
 | SUSFS | ✅ | ❌¹ | ShirkNeko/susfs4ksu (`gki-android15-6.6`) |
-| KPM | ✅ | ❌² | bundled `build/patch_linux` |
+| ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android15-6.6/ReSukiSU`) |
 | Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
 | Re:Kernel | ✅ | ✅ | vendored `build/features/rekernel` |
 | Wild perf patches | ✅ | ✅ | WildKernels/kernel_patches |
-| NTSync | ✅ | ✅ | Linux mainline ³ |
-| Droidspaces | ✅ | ✅ | mainline configs + KABI shim ³ |
+| NTSync | ✅ | ✅ | Linux mainline ² |
+| Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
 | Unicode bypass fix | ✅ | ✅ | WildKernels |
 | NTFS3 (+LZX/XPRESS) | ✅ | ✅ | mainline |
 | zram default lz4 / FQ+BBR | ✅ | ✅ | config |
@@ -238,8 +238,7 @@ Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is 
 | Samsung security stack disabled | ✅ | ✅ | `scripts/config` overrides |
 
 ¹ SUSFS is off in `lkm`: `fs/susfs.c` references `ksu_*` symbols that only link with `CONFIG_KSU=y`.
-² `KPM` depends on KSU.
-³ Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Wild perf patches" row (their curated performance/logspam set).
+² Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Wild perf patches" row (their curated performance/logspam set).
 
 ## 🚀 Build
 
@@ -249,15 +248,15 @@ build/build.sh lkm        # pure kernel
 PACK=1 build/build.sh     # also pack an AnyKernel3 zip
 ```
 
-Output: `out/arch/arm64/boot/Image` (KPM-patched in resukisu) and, with `PACK=1`, `../SM8750_<tag>_<ver>_<MMDD>.zip`. Release string: `6.6.138-android15-8-YuccaA-abogki<random>-4k`. Requires the Samsung `clang-r510928` prebuilts (`TOOLCHAIN_DIR` defaults to `../toolchain_samsung_sm8750/kernel_platform/prebuilts`) and network on first build; ccache is used automatically when present.
+Output: `out/arch/arm64/boot/Image` from the selected mode and, with `PACK=1`, `../SM8750_<tag>_<ver>_<MMDD>.zip`. Release string: `6.6.138-android15-8-YuccaA-abogki<random>-4k`. Requires the Samsung `clang-r510928` prebuilts (`TOOLCHAIN_DIR` defaults to `../toolchain_samsung_sm8750/kernel_platform/prebuilts`) and network on first build; ccache is used automatically when present.
 
 ## ⚙️ Build switches
 
-Mode-driven — features are all on; the single `resukisu`/`lkm` arg gates KSU/SUSFS/KPM. Env: `TOOLCHAIN_DIR`, `JOBS`, `PACK`, `ANYKERNEL_DIR`, `BUILD_NUM`, `SUSFS_PIN`, `WILD_PIN`, `CCACHE_DIR`, `CCACHE_MAXSIZE`.
+Mode-driven — features are all on; the single `resukisu`/`lkm` arg gates KSU/SUSFS/ZeroMount. Env: `TOOLCHAIN_DIR`, `JOBS`, `PACK`, `ANYKERNEL_DIR`, `BUILD_NUM`, `SUSFS_PIN`, `SUPER_BUILDERS_PIN`, `WILD_PIN`, `CCACHE_DIR`, `CCACHE_MAXSIZE`.
 
 ## 🔐 Security & hardening
 
-`resukisu` builds disable Samsung's security stack (UH / RKP / KDP / DEFEX / INTEGRITY / FIVE) plus `TRIM_UNUSED_KSYMS`. Re-enable only for a non-rooted build. SUSFS / Unicode fix / IPv6-NAT hiding reduce the common root-detection surface.
+`build/build.sh` disables Samsung's security stack (UH / RKP / KDP / DEFEX / INTEGRITY / FIVE) plus `TRIM_UNUSED_KSYMS` in both modes. SUSFS / Unicode fix / IPv6-NAT hiding reduce the common root-detection surface.
 
 ## 📦 Flashing
 
@@ -265,4 +264,4 @@ Flash the zip from an S25 recovery (TWRP/OrangeFox), or drop the raw `Image` int
 
 ## 📜 Lineage & license
 
-GPL-2.0, derived from **Google ACK** `android15-6.6`, Samsung's open-source Galaxy S25 (SM8750) kernel, plus ReSukiSU/KernelSU, SukiSU KPM, SUSFS (ShirkNeko), WildKernels, Baseband-guard (vc-teahouse) and Re:Kernel — each under its own license. This repo's own contribution is the ACK↔Samsung merge-base reconstruction, the LTS forward-merge conflict resolution, the FUSE fix, and the mode-driven build system. The original ACK "submitting patches" guide is preserved as [`README.ACK.md`](README.ACK.md).
+GPL-2.0, derived from **Google ACK** `android15-6.6`, Samsung's open-source Galaxy S25 (SM8750) kernel, plus ReSukiSU/KernelSU, SUSFS (ShirkNeko), ZeroMount (Super-Builders), WildKernels, Baseband-guard (vc-teahouse) and Re:Kernel — each under its own license. This repo's own contribution is the ACK↔Samsung merge-base reconstruction, the LTS forward-merge conflict resolution, the FUSE fix, and the mode-driven build system. The original ACK "submitting patches" guide is preserved as [`README.ACK.md`](README.ACK.md).

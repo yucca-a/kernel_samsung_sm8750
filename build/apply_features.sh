@@ -5,11 +5,12 @@
 # Runs from the kernel source root. Driven by environment:
 #   MODE        resukisu (default) | lkm
 #   CACHE       directory for fetched upstream patch sources
-#   SUSFS_PIN   susfs4ksu commit to use (default 2df41de)
-#   WILD_PIN    WildKernels/kernel_patches commit (default 5a5d5d8)
+#   SUSFS_PIN           susfs4ksu commit to use
+#   SUPER_BUILDERS_PIN  Super-Builders commit to use for ZeroMount
+#   WILD_PIN            WildKernels/kernel_patches commit to use
 #
-# resukisu : KSU built-in + SUSFS + KPM + everything else
-# lkm      : pure kernel (no KSU/SUSFS/KPM); KSU is injected at flash time
+# resukisu : KSU built-in + SUSFS + ZeroMount + everything else
+# lkm      : pure kernel (no KSU/SUSFS/ZeroMount); KSU is injected at flash time
 #            by the KSU manager app patching init_boot. SUSFS must be OFF
 #            because fs/susfs.c references ksu_* symbols that only link with
 #            CONFIG_KSU=y.
@@ -18,8 +19,10 @@ KROOT="$(pwd)"
 MODE="${MODE:-resukisu}"
 CACHE="${CACHE:-$KROOT/.build_cache}"
 SUSFS_PIN="${SUSFS_PIN:-8c6da8443a622c8e5dfdea621d306b5143b40d01}"  # susfs4ksu gki-android15-6.6 tip (bumped 2026-06-03: SUS_PATH errno + mnt_id defaults)
+SUPER_BUILDERS_PIN="${SUPER_BUILDERS_PIN:-c2cb71614868fe742cbffee2b6f3126523432673}" # android15-6.6 ReSukiSU ZeroMount
 WILD_PIN="${WILD_PIN:-5a5d5d8}"
 SUSFS_URL=https://github.com/ShirkNeko/susfs4ksu.git
+SUPER_BUILDERS_URL=https://github.com/Enginex0/Super-Builders.git
 WILD_URL=https://github.com/WildKernels/kernel_patches.git
 RESUKISU_SETUP=https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh
 BBG_SETUP=https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh
@@ -42,6 +45,20 @@ try_patch(){ # patchfile label
   else log "!SKIP $2"; fi
   find . -name '*.rej' -delete 2>/dev/null; find . -name '*.orig' -delete 2>/dev/null; }
 
+require_patch(){ # patchfile label
+  [ -f "$1" ] || { log "!miss $2"; exit 1; }
+  if /usr/bin/patch -p1 -R --dry-run -s -f --no-backup-if-mismatch <"$1" >/dev/null 2>&1; then
+    log "=already $2"
+  elif /usr/bin/patch -p1 --forward -F3 -s --no-backup-if-mismatch <"$1" >/dev/null 2>&1; then
+    log "+ok $2"
+  else
+    log "!FAIL $2"
+    find . -name '*.rej' -print
+    exit 1
+  fi
+  find . -name '*.rej' -delete 2>/dev/null; find . -name '*.orig' -delete 2>/dev/null
+}
+
 ############################################################
 log "1/7 ReSukiSU sources (KSU symlink must resolve at Kconfig time, even in lkm)"
 curl -LSs "$RESUKISU_SETUP" | bash -s main >/dev/null 2>&1
@@ -57,14 +74,20 @@ if [ "$MODE" = "resukisu" ]; then
   if ! grep -q "linux/susfs_def.h" fs/namespace.c; then
     perl -0pi -e 's{#include <linux/mnt_idmapping.h>\n}{#include <linux/mnt_idmapping.h>\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n#include <linux/susfs_def.h>\n#endif\n}' fs/namespace.c
   fi
-  # selinuxfs: neutralise the fake-selinux-status spoof symbols ReSukiSU dropped
-  # (every ref, global; this SUSFS commit also references ksu_selinux_hide_running).
-  # No-op if the hunk was rejected (nothing to replace).
-  perl -0pi -e 's/&& ksu_selinux_hide_enabled\)/&& 0)/g; s/data = fake_status;/data = NULL;/g; s/static_branch_unlikely\(&fake_status_initialize_key\) && !ret && !fake_status/0/g; s/initialize_fake_status\(\);/(void)0;/g; s/!ksu_selinux_hide_running/1/g' security/selinux/selinuxfs.c
+
+  log "  Super-Builders ZeroMount patch @ $SUPER_BUILDERS_PIN"
+  clone_pin "$SUPER_BUILDERS_URL" "$SUPER_BUILDERS_PIN" "$CACHE/super_builders" || exit 1
+  SB_PATCHES="$CACHE/super_builders/android15-6.6/ReSukiSU/patches"
+  require_patch "$SB_PATCHES/60_zeromount-android15-6.6.patch" zeromount
+
+  # Keep ReSukiSU/SUSFS SELinux hide intact. ReSukiSU detects the SUSFS
+  # manual hook via kernel/tools/susfs_compat.mk and exposes the needed
+  # fake_status symbols from feature/selinux_hide.c.
   log "  susfs rejects: $(find . -name '*.rej'|wc -l); setresuid hook: $(grep -c ksu_handle_setresuid kernel/sys.c)"
   find . -name '*.rej' -delete 2>/dev/null; find . -name '*.orig' -delete 2>/dev/null
 else
   log "2/7 SUSFS skipped (lkm: pure kernel)"
+  log "  ZeroMount skipped (lkm: pure kernel)"
 fi
 
 log "3/7 Baseband-guard"

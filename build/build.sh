@@ -6,8 +6,8 @@
 #   build/build.sh [resukisu|lkm]
 #
 # Modes:
-#   resukisu (default)  built-in ReSukiSU + SUSFS + full feature set
-#   lkm                 pure kernel, no KSU/SUSFS (KSU injected at flash
+#   resukisu (default)  built-in ReSukiSU + SUSFS + ZeroMount + full feature set
+#   lkm                 pure kernel, no KSU/SUSFS/ZeroMount (KSU injected at flash
 #                       time by the manager app patching init_boot)
 #
 # Environment overrides:
@@ -82,9 +82,9 @@ COMMON_ENABLE="-e NTFS3_FS -e NTFS3_LZX_XPRESS -e ZRAM_DEF_COMP_LZ4 --set-str ZR
   -e IP_SET_HASH_NETIFACE -e IP_SET_LIST_SET"
 
 if [ "$MODE" = "resukisu" ]; then
-  MODE_CFG="-e KSU -e KSU_SUSFS"
+  MODE_CFG="-e KSU -e KSU_SUSFS -e ZEROMOUNT"
 else
-  MODE_CFG="-d KSU -d KSU_SUSFS"
+  MODE_CFG="-d KSU -d KSU_SUSFS -d ZEROMOUNT"
 fi
 
 # shellcheck disable=SC2086
@@ -98,7 +98,7 @@ fi
 make -j"$JOBS" O="$OUT" $MAKE_ARGS olddefconfig >/dev/null
 
 echo "=== config summary ==="
-for c in KSU KSU_SUSFS NTFS3_FS ZRAM_DEF_COMP_LZ4 TCP_CONG_BBR NTSYNC IP6_NF_NAT REKERNEL POSIX_MQUEUE; do
+for c in KSU KSU_SUSFS ZEROMOUNT NTFS3_FS ZRAM_DEF_COMP_LZ4 TCP_CONG_BBR NTSYNC IP6_NF_NAT REKERNEL POSIX_MQUEUE; do
   printf '    %-20s %s\n' "$c" "$(grep -q "^CONFIG_$c=y" "$OUT/.config" && echo y || echo n)"
 done
 printf '    %-20s %s\n' "baseband_guard" "$(grep -q baseband_guard "$OUT/.config" && echo y || echo n)"
@@ -118,7 +118,7 @@ echo "    Image: $(stat -c%s "$IMG") bytes   release: $REL"
 # Since drivers/kernelsu is fetched from ReSukiSU @ main, builds no longer carry
 # the kernel-side KPM driver, so running patch_linux would only stamp an inert
 # patch onto the Image (and falsely log "KPM-patched"). We therefore no longer
-# patch the Image. resukisu mode ships KSU + SUSFS only. To bring KPM back,
+# patch the Image. resukisu mode ships KSU + SUSFS + ZeroMount. To bring KPM back,
 # switch fetch_kernelsu.sh to a KPM-capable source (e.g. SukiSU-Ultra) and
 # restore the patch_linux step.
 
