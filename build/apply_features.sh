@@ -109,6 +109,121 @@ PY
   log "  ZeroMount task_mmu metadata hook fixed"
 }
 
+fix_zeromount_runtime_guards(){
+  python3 - <<'PY'
+import pathlib
+
+def replace_once(path, old, new, label):
+    p = pathlib.Path(path)
+    s = p.read_text()
+    if new in s:
+        return False
+    if old not in s:
+        raise SystemExit(f'ZeroMount runtime guard fixup failed: {label}')
+    p.write_text(s.replace(old, new, 1))
+    return True
+
+replace_once(
+    'fs/zeromount.c',
+    '\tif (unlikely(!inode || !inode->i_sb))\n'
+    '\t\treturn NULL;\n\n'
+    '\tkey = inode->i_ino ^ inode->i_sb->s_dev;\n',
+    '\tif (unlikely(!inode || !inode->i_sb) || zeromount_should_skip())\n'
+    '\t\treturn NULL;\n\n'
+    '\tif (atomic_read(&zeromount_rule_count) == 0)\n'
+    '\t\treturn NULL;\n\n'
+    '\tkey = inode->i_ino ^ inode->i_sb->s_dev;\n',
+    'static vpath must be disabled while ZeroMount is off',
+)
+
+replace_once(
+    'fs/d_path.c',
+    '#ifdef CONFIG_ZEROMOUNT\n'
+    '\tif (path->dentry && d_backing_inode(path->dentry)) {\n',
+    '#ifdef CONFIG_ZEROMOUNT\n'
+    '\tif (!zeromount_should_skip() && path->dentry && d_backing_inode(path->dentry)) {\n',
+    'd_path must not enter ZeroMount while disabled',
+)
+
+p = pathlib.Path('fs/readdir.c')
+s = p.read_text()
+s = s.replace(
+    '#ifdef CONFIG_ZEROMOUNT\n'
+    '\tint initial_count = count;\n'
+    '#endif\n',
+    '#ifdef CONFIG_ZEROMOUNT\n'
+    '\tint initial_count = count;\n'
+    '\tbool zm_skip_real_iterate = false;\n'
+    '#endif\n',
+)
+s = s.replace(
+    '#ifdef CONFIG_ZEROMOUNT\n'
+    '\tif (f.file->f_pos >= ZEROMOUNT_MAGIC_POS) {\n'
+    '\t\terror = 0;\n'
+    '\t\tgoto skip_real_iterate;\n'
+    '\t}\n'
+    '#endif\n',
+    '#ifdef CONFIG_ZEROMOUNT\n'
+    '\tif (!zeromount_should_skip() && f.file->f_pos >= ZEROMOUNT_MAGIC_POS) {\n'
+    '\t\terror = 0;\n'
+    '\t\tzm_skip_real_iterate = true;\n'
+    '\t\tgoto skip_real_iterate;\n'
+    '\t}\n'
+    '#endif\n',
+)
+for fn in ('zeromount_inject_dents', 'zeromount_inject_dents64', 'zeromount_inject_dents'):
+    old = (
+        '#ifdef CONFIG_ZEROMOUNT\n'
+        'skip_real_iterate:\n'
+        '\tif (error >= 0 && !signal_pending(current)) {\n'
+        f'\t\t{fn}(f.file, (void __user **)&dirent, &count, &f.file->f_pos);\n'
+        '\t\tif (count != initial_count)\n'
+        '\t\t\terror = initial_count - count;\n'
+        '\t\tgoto zm_out;\n'
+        '\t}\n'
+        '#endif\n'
+    )
+    new = (
+        '#ifdef CONFIG_ZEROMOUNT\n'
+        'skip_real_iterate:\n'
+        '#endif\n'
+    )
+    if old not in s and new not in s:
+        raise SystemExit(f'ZeroMount runtime guard fixup failed: readdir {fn} label')
+    s = s.replace(old, new, 1)
+
+marker = '#ifdef CONFIG_ZEROMOUNT\nzm_out:\n#endif\n\tfdput_pos(f);\n'
+for fn in ('zeromount_inject_dents', 'zeromount_inject_dents64', 'zeromount_inject_dents'):
+    new = (
+        '#ifdef CONFIG_ZEROMOUNT\n'
+        '\tif (error >= 0 && !signal_pending(current) && !zeromount_should_skip()) {\n'
+        '\t\tvoid __user *zm_dirent;\n'
+        '\t\tint zm_count;\n'
+        '\t\tint zm_original_count;\n\n'
+        '\t\tif (zm_skip_real_iterate) {\n'
+        '\t\t\tzm_dirent = (void __user *)dirent;\n'
+        '\t\t\tzm_count = count;\n'
+        '\t\t} else {\n'
+        '\t\t\tzm_dirent = (void __user *)buf.current_dir;\n'
+        '\t\t\tzm_count = buf.count;\n'
+        '\t\t}\n\n'
+        '\t\tzm_original_count = zm_count;\n'
+        f'\t\t{fn}(f.file, &zm_dirent, &zm_count, &f.file->f_pos);\n'
+        '\t\tif (zm_count != zm_original_count)\n'
+        '\t\t\terror = initial_count - zm_count;\n'
+        '\t}\n'
+        '#endif\n'
+        '\tfdput_pos(f);\n'
+    )
+    if marker not in s and new not in s:
+        raise SystemExit(f'ZeroMount runtime guard fixup failed: readdir {fn} exit')
+    s = s.replace(marker, new, 1)
+
+p.write_text(s)
+PY
+  log "  ZeroMount runtime guards fixed"
+}
+
 zeromount_core_present(){
   [ -f fs/zeromount.c ] &&
     [ -f include/linux/zeromount.h ] &&
@@ -143,6 +258,7 @@ if [ "$MODE" = "resukisu" ]; then
     require_patch "$SB_PATCHES/60_zeromount-android15-6.6.patch" zeromount
   fi
   fix_zeromount_task_mmu
+  fix_zeromount_runtime_guards
 
   # Keep ReSukiSU/SUSFS SELinux hide intact. ReSukiSU detects the SUSFS
   # manual hook via kernel/tools/susfs_compat.mk and exposes the needed

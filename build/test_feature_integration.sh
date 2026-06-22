@@ -26,6 +26,10 @@ require_grep '60_zeromount-android15-6\.6\.patch' "$APPLY" \
   "resukisu mode must apply the ZeroMount kernel patch"
 require_grep 'fix_zeromount_task_mmu' "$APPLY" \
   "ZeroMount integration must fix task_mmu metadata hook placement"
+require_grep 'fix_zeromount_runtime_guards' "$APPLY" \
+  "ZeroMount integration must keep disabled ZeroMount out of boot-critical paths"
+require_grep 'buf\.current_dir' "$APPLY" \
+  "ZeroMount readdir injection must append after real directory entries"
 reject_grep '51_enhanced_susfs-android15-6\.6\.patch' "$APPLY" \
   "apply_features.sh must not force Super-Builders enhanced SUSFS over ShirkNeko SUSFS tip"
 require_grep 'ZeroMount skipped \(lkm: pure kernel\)' "$APPLY" \
