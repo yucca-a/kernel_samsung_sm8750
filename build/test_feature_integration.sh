@@ -59,6 +59,13 @@ require_grep 'RESUKISU_REF' "$APPLY" \
 
 require_grep 'REKERNEL_LEGACY_NETLINK' "$BUILD" \
   "build.sh must preserve the legacy ReKernel userspace transport"
+require_grep 'REKERNEL_MAJOR_VERSION[[:space:]]+"11\.0"' "$ROOT/build/features/rekernel/rekernel.h" \
+  "ReKernel must remain pinned to the requested 11.0 test baseline"
+require_grep '^Commit: 0b4a1af727edc08e40db72760eee5e9335d244db$' "$ROOT/build/features/rekernel/PROVENANCE" \
+  "ReKernel provenance must identify the official 11.0 source"
+require_grep 'rekernel_binder_alloc\.o' "$ROOT/build/features/rekernel/Makefile" \
+  "ReKernel 11.0 binder buffer helper must be linked"
+[ -s "$ROOT/build/features/rekernel/rekernel_binder_alloc.c" ] || fail "missing ReKernel 11.0 buffer helper"
 require_grep 'resukisu-susfs-2.3.patch' "$APPLY" \
   "SUSFS 2.3 must be adapted to the pinned ReSukiSU exec hook API"
 [ -s "$ROOT/build/features/resukisu-susfs-2.3.patch" ] || fail "missing ReSukiSU compatibility patch"
