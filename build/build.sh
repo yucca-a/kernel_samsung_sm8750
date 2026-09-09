@@ -75,7 +75,7 @@ COMMON_ENABLE="-e NTFS3_FS -e NTFS3_LZX_XPRESS -e ZRAM_DEF_COMP_LZ4 --set-str ZR
   -e SYSVIPC -e POSIX_MQUEUE -e IPC_NS -e PID_NS -e DEVTMPFS \
   -e NETFILTER_XT_MATCH_ADDRTYPE -e NETFILTER_XT_MATCH_RECENT \
   -e TMPFS -e TMPFS_POSIX_ACL -e TMPFS_XATTR -e TMPFS_INODE64 \
-  -e NETFILTER_XT_TARGET_HL \
+  -e NETFILTER_XT_TARGET_HL -e NETFILTER_XT_SET \
   -e IP_SET -e IP_SET_BITMAP_IP -e IP_SET_BITMAP_IPMAC -e IP_SET_BITMAP_PORT \
   -e IP_SET_HASH_IP -e IP_SET_HASH_IPMARK -e IP_SET_HASH_IPPORT -e IP_SET_HASH_IPPORTIP \
   -e IP_SET_HASH_IPPORTNET -e IP_SET_HASH_IPMAC -e IP_SET_HASH_MAC -e IP_SET_HASH_NET \
@@ -98,6 +98,12 @@ if grep -q '^CONFIG_LSM="' "$OUT/.config" && ! grep -q baseband_guard "$OUT/.con
 fi
 make -j"$JOBS" O="$OUT" $MAKE_ARGS olddefconfig >/dev/null
 
+# IP_SET without XT_SET cannot be consumed by iptables' -m set match.
+if ! grep -q '^CONFIG_NETFILTER_XT_SET=y$' "$OUT/.config"; then
+  echo "ERROR: IP_SET requires built-in NETFILTER_XT_SET support" >&2
+  exit 1
+fi
+
 # Match the official Re:Kernel module's Generic Netlink transport.
 if ! grep -q '^CONFIG_REKERNEL=y$' "$OUT/.config" || \
    grep -q '^CONFIG_REKERNEL_LEGACY_NETLINK=y$' "$OUT/.config"; then
@@ -106,7 +112,7 @@ if ! grep -q '^CONFIG_REKERNEL=y$' "$OUT/.config" || \
 fi
 
 echo "=== config summary ==="
-for c in KSU KSU_SUSFS ZEROMOUNT NTFS3_FS ZRAM_DEF_COMP_LZ4 TCP_CONG_BBR NTSYNC IP6_NF_NAT REKERNEL REKERNEL_LEGACY_NETLINK POSIX_MQUEUE; do
+for c in KSU KSU_SUSFS ZEROMOUNT NTFS3_FS ZRAM_DEF_COMP_LZ4 TCP_CONG_BBR NTSYNC IP6_NF_NAT IP_SET NETFILTER_XT_SET REKERNEL REKERNEL_LEGACY_NETLINK POSIX_MQUEUE; do
   printf '    %-20s %s\n' "$c" "$(grep -q "^CONFIG_$c=y" "$OUT/.config" && echo y || echo n)"
 done
 printf '    %-20s %s\n' "baseband_guard" "$(grep -q baseband_guard "$OUT/.config" && echo y || echo n)"

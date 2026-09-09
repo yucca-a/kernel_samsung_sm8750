@@ -56,6 +56,10 @@ reject_grep 'apply_wild_perf|APPLY_WILD_PERF|for p in silence_irq_cpu_logspam' "
 require_grep 'RESUKISU_REF' "$APPLY" \
   "ReSukiSU sources must use a fixed revision"
 
+require_grep '\-e NETFILTER_XT_SET' "$BUILD" \
+  "both modes must build the iptables set match into the kernel"
+require_grep "CONFIG_NETFILTER_XT_SET=y" "$BUILD" \
+  "build.sh must reject an incomplete IP_SET configuration"
 
 require_grep '^COMMON_DISABLE=.*-d REKERNEL_LEGACY_NETLINK' "$BUILD" \
   "both modes must explicitly disable legacy ReKernel transport"

@@ -45,7 +45,7 @@
 - 💾 **NTFS3 读写** — OTG 上的 NTFS 盘可读写（含 LZX/XPRESS 压缩）。
 - 🗜️ **zram lz4 + BBR** — zram 默认换 lz4，TCP 默认 FQ + BBR。
 - 📁 **完整 tmpfs** — POSIX ACL / XATTR / INODE64 全开。
-- 🕸️ **完整 ipset** — 内置整套 IP set（bitmap/hash/list）。
+- 🕸️ **完整 ipset** — 内置整套 IP set（bitmap/hash/list）及 iptables `xt_set` 匹配/目标，无需额外 LKM。
 - 🕵️ **IPv6 NAT 隐藏** — 构建期抹掉 `/proc/config.gz` 里的痕迹，绕过基于配置的 root 检测。
 - 🛡️ **三星安全栈禁用** — 关闭 UH / RKP / KDP / DEFEX / INTEGRITY / FIVE 等反 root 机制。
 - 🚀 **ccache 加速** — 增量编译提速约 60–80%。
@@ -95,7 +95,7 @@
 | zram 默认 lz4 | ✅ | ✅ | config |
 | FQ + BBR | ✅ | ✅ | config |
 | 完整 tmpfs（ACL/XATTR/INODE64） | ✅ | ✅ | config |
-| 完整 ipset | ✅ | ✅ | config |
+| 完整 ipset（含 `xt_set`） | ✅ | ✅ | config |
 | IPv6 NAT 隐藏 | ✅ | ✅ | 内置 `config_data` 钩子 |
 | 三星安全栈禁用 | ✅ | ✅ | 构建期 `scripts/config` 覆盖 |
 
@@ -207,7 +207,7 @@ The build is **mode-driven**: the git tree is a clean base with **no** KSU / SUS
 - 🔓 **Built-in root** — ReSukiSU (KernelSU) compiled in (`resukisu`); or a clean `lkm` mode where root is injected at flash time.
 - 🫥 **SUSFS hiding** · 🧭 **ZeroMount** · 📡 **Baseband-guard** · 🔔 **Re:Kernel**
 - 🎮 **NTSync** (Wine/Proton) · 📦 **Droidspaces** (Linux containers) · 💾 **NTFS3** (+LZX/XPRESS)
-- 🗜️ **zram lz4 + FQ/BBR** · 📁 **Full tmpfs** (ACL/XATTR/INODE64) · 🕸️ **Full ipset suite**
+- 🗜️ **zram lz4 + FQ/BBR** · 📁 **Full tmpfs** (ACL/XATTR/INODE64) · 🕸️ **Full ipset suite with `xt_set`**
 - 🕵️ **IPv6 NAT hidden** from `/proc/config.gz` · 🛡️ **Samsung security stack disabled** · 🚀 **ccache**
 
 **SM8750-only:** **ACK-rebased** clean merge base for sustainable LTS forward-merges; **FUSE passthrough fix** — `fs/fuse/inode.c` is the **Samsung** version (passthrough / `backing_inode`), not the ACK one. Taking ACK's `inode.c` broke the `/storage/emulated/0` FUSE mount (internal storage reported **0 bytes**; screenshots/downloads failed to save). Snapshots from the same vendor drop without this fix are likely affected.
@@ -241,7 +241,7 @@ Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is 
 | NTFS3 (+LZX/XPRESS) | ✅ | ✅ | mainline |
 | zram default lz4 / FQ+BBR | ✅ | ✅ | config |
 | Full tmpfs (ACL/XATTR/INODE64) | ✅ | ✅ | config |
-| Full ipset suite | ✅ | ✅ | config |
+| Full ipset suite (including `xt_set`) | ✅ | ✅ | config |
 | IPv6 NAT hidden | ✅ | ✅ | in-tree `config_data` hook |
 | Samsung security stack disabled | ✅ | ✅ | `scripts/config` overrides |
 
