@@ -329,7 +329,7 @@ PY
 # install_su_fd post-exec API is not part of the pinned ReSukiSU revision.
 if [ "$MODE" = "resukisu" ]; then
   compat_patch="$HERE/features/resukisu-susfs-2.3.patch"
-  if ! /usr/bin/patch -p1 -R --dry-run --batch --fuzz=0 < "$compat_patch" >/dev/null 2>&1; then
+  if ! /usr/bin/patch -p1 -R --forward --dry-run --batch --fuzz=0 < "$compat_patch" >/dev/null 2>&1; then
     /usr/bin/patch -p1 --forward --batch --fuzz=0 --no-backup-if-mismatch < "$compat_patch" || exit 1
   fi
 fi
