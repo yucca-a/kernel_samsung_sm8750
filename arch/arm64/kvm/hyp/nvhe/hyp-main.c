@@ -813,6 +813,8 @@ static void fpsimd_host_restore(struct kvm_vcpu *vcpu)
 	vcpu->arch.fp_state = FP_STATE_HOST_OWNED;
 }
 
+unsigned int hyp_gicv3_nr_lr;
+
 static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(pkvm_handle_t, handle, host_ctxt, 1);
@@ -829,6 +831,7 @@ static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 	if (!hyp_vcpu)
 		return;
 
+	hyp_vcpu->vcpu.arch.ctxt.__hyp_running_vcpu = NULL;
 	/*
 	 * Guarantee that both TLBs and I-cache are private to each vcpu. If a
 	 * vcpu from the same VM has previously run on the same physical CPU,

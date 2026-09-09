@@ -248,4 +248,6 @@ static inline void android_init_dynamic_vendor_data(struct task_struct *p)
 static inline void android_init_dynamic_vendor_data(struct task_struct *p) {}
 #endif /* CONFIG_GKI_DYNAMIC_TASK_STRUCT_SIZE */
 
+DEFINE_GUARD(task_lock, struct task_struct *, task_lock(_T), task_unlock(_T))
+
 #endif /* _LINUX_SCHED_TASK_H */

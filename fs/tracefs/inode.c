@@ -365,6 +365,7 @@ static int tracefs_apply_options(struct super_block *sb, bool remount)
 	struct tracefs_mount_opts *opts = &fsi->mount_opts;
 	struct tracefs_inode *ti;
 	bool update_uid, update_gid;
+	int srcu_idx;
 	umode_t tmp_mode;
 
 	/*
@@ -389,6 +390,7 @@ static int tracefs_apply_options(struct super_block *sb, bool remount)
 		update_uid = opts->opts & BIT(Opt_uid);
 		update_gid = opts->opts & BIT(Opt_gid);
 
+		srcu_idx = eventfs_remount_lock();
 		rcu_read_lock();
 		list_for_each_entry_rcu(ti, &tracefs_inodes, list) {
 			if (update_uid)
@@ -401,6 +403,7 @@ static int tracefs_apply_options(struct super_block *sb, bool remount)
 				eventfs_remount(ti, update_uid, update_gid);
 		}
 		rcu_read_unlock();
+		eventfs_remount_unlock(srcu_idx);
 	}
 
 	return 0;
@@ -447,7 +450,7 @@ static int tracefs_drop_inode(struct inode *inode)
 	 * This inode is being freed and cannot be used for
 	 * eventfs. Clear the flag so that it doesn't call into
 	 * eventfs during the remount flag updates. The eventfs_inode
-	 * gets freed after an RCU cycle, so the content will still
+	 * gets freed after an SRCU cycle, so the content will still
 	 * be safe if the iteration is going on now.
 	 */
 	ti->flags &= ~TRACEFS_EVENT_INODE;

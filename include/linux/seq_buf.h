@@ -96,6 +96,18 @@ static inline void seq_buf_terminate(struct seq_buf *s)
 		s->buffer[s->size - 1] = 0;
 }
 
+/* Ensure that trace histogram strings are bounded and NUL terminated. */
+static inline const char *seq_buf_str(struct seq_buf *s)
+{
+	if (WARN_ON(s->size == 0))
+		return "";
+	if (seq_buf_buffer_left(s))
+		s->buffer[s->len] = 0;
+	else
+		s->buffer[s->size - 1] = 0;
+	return s->buffer;
+}
+
 /**
  * seq_buf_get_buf - get buffer to write arbitrary data to
  * @s: the seq_buf handle

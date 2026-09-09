@@ -31,7 +31,8 @@ static struct block_device **fscrypt_get_devices(struct super_block *sb,
 		if (devs)
 			return devs;
 	}
-	devs = kmalloc(sizeof(*devs), GFP_KERNEL);
+	/* Key eviction must not fail after the key has been installed. */
+	devs = kmalloc(sizeof(*devs), GFP_KERNEL | __GFP_NOFAIL);
 	if (!devs)
 		return ERR_PTR(-ENOMEM);
 	devs[0] = sb->s_bdev;
