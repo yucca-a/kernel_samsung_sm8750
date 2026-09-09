@@ -57,8 +57,13 @@ require_grep 'RESUKISU_REF' "$APPLY" \
   "ReSukiSU sources must use a fixed revision"
 
 
-require_grep 'REKERNEL_LEGACY_NETLINK' "$BUILD" \
-  "build.sh must preserve the legacy ReKernel userspace transport"
+require_grep '^COMMON_DISABLE=.*-d REKERNEL_LEGACY_NETLINK' "$BUILD" \
+  "both modes must explicitly disable legacy ReKernel transport"
+reject_grep '\-e REKERNEL_LEGACY_NETLINK' "$BUILD" \
+  "build.sh must not force legacy ReKernel transport"
+legacy_default=$(sed -n '/^config REKERNEL_LEGACY_NETLINK/,/^endmenu/p' \
+  "$ROOT/build/features/rekernel/Kconfig" | grep -E '^[[:space:]]*default ')
+[[ "$legacy_default" =~ default[[:space:]]+n$ ]] || fail "ReKernel must default to Generic Netlink"
 require_grep 'REKERNEL_MAJOR_VERSION[[:space:]]+"11\.0"' "$ROOT/build/features/rekernel/rekernel.h" \
   "ReKernel must remain pinned to the requested 11.0 test baseline"
 require_grep '^Commit: 0b4a1af727edc08e40db72760eee5e9335d244db$' "$ROOT/build/features/rekernel/PROVENANCE" \

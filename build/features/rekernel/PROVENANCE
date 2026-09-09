@@ -4,6 +4,7 @@ Tag: 11.0
 Directory: LKM-Source (Re:Kernel 11.0)
 License: GPL-2.0
 
-Local integration: built-in composite object instead of obj-m; legacy raw
-Netlink is enabled by default to preserve the existing userspace protocol.
+Local integration: built-in composite object instead of obj-m; Generic Netlink
+is the default, matching the official 11.0 module. Both production build modes
+explicitly disable legacy raw Netlink.
 Upstream Kconfig switches are wired to NETWORK_FILTER / LEGACY_NETLINK.

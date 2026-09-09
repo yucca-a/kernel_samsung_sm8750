@@ -68,10 +68,10 @@ BUILD_ID="${BUILD_ID:-${BUILD_NUM:-$(git rev-parse --short=7 HEAD 2>/dev/null ||
 rm -f localversion
 
 # common: drop Samsung security stack that conflicts with custom kernels
-COMMON_DISABLE="-d UH -d RKP -d KDP -d SECURITY_DEFEX -d INTEGRITY -d FIVE -d TRIM_UNUSED_KSYMS"
+COMMON_DISABLE="-d UH -d RKP -d KDP -d SECURITY_DEFEX -d INTEGRITY -d FIVE -d TRIM_UNUSED_KSYMS -d REKERNEL_LEGACY_NETLINK"
 # common features (KSU-independent): NTFS3, zram-lz4, FQ+BBR, NTSync, IPv6 NAT, Re:Kernel, sysvipc/mqueue
 COMMON_ENABLE="-e NTFS3_FS -e NTFS3_LZX_XPRESS -e ZRAM_DEF_COMP_LZ4 --set-str ZRAM_DEF_COMP lz4 \
-  -e NET_SCH_FQ -e TCP_CONG_BBR -e DEFAULT_BBR -e NTSYNC -e IP6_NF_NAT -e REKERNEL -e REKERNEL_LEGACY_NETLINK \
+  -e NET_SCH_FQ -e TCP_CONG_BBR -e DEFAULT_BBR -e NTSYNC -e IP6_NF_NAT -e REKERNEL \
   -e SYSVIPC -e POSIX_MQUEUE -e IPC_NS -e PID_NS -e DEVTMPFS \
   -e NETFILTER_XT_MATCH_ADDRTYPE -e NETFILTER_XT_MATCH_RECENT \
   -e TMPFS -e TMPFS_POSIX_ACL -e TMPFS_XATTR -e TMPFS_INODE64 \
@@ -98,8 +98,15 @@ if grep -q '^CONFIG_LSM="' "$OUT/.config" && ! grep -q baseband_guard "$OUT/.con
 fi
 make -j"$JOBS" O="$OUT" $MAKE_ARGS olddefconfig >/dev/null
 
+# Match the official Re:Kernel module's Generic Netlink transport.
+if ! grep -q '^CONFIG_REKERNEL=y$' "$OUT/.config" || \
+   grep -q '^CONFIG_REKERNEL_LEGACY_NETLINK=y$' "$OUT/.config"; then
+  echo "ERROR: ReKernel must be built in with Generic Netlink" >&2
+  exit 1
+fi
+
 echo "=== config summary ==="
-for c in KSU KSU_SUSFS ZEROMOUNT NTFS3_FS ZRAM_DEF_COMP_LZ4 TCP_CONG_BBR NTSYNC IP6_NF_NAT REKERNEL POSIX_MQUEUE; do
+for c in KSU KSU_SUSFS ZEROMOUNT NTFS3_FS ZRAM_DEF_COMP_LZ4 TCP_CONG_BBR NTSYNC IP6_NF_NAT REKERNEL REKERNEL_LEGACY_NETLINK POSIX_MQUEUE; do
   printf '    %-20s %s\n' "$c" "$(grep -q "^CONFIG_$c=y" "$OUT/.config" && echo y || echo n)"
 done
 printf '    %-20s %s\n' "baseband_guard" "$(grep -q baseband_guard "$OUT/.config" && echo y || echo n)"
