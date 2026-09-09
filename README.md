@@ -4,11 +4,17 @@
 
 # kernel_samsung_sm8750
 
+> 2026-09-09 更新：LTS 6.6.156；移除全部 Wild 性能/日志/唤醒调优。
+> 保留 BBR、ZRAM LZ4、Unicode、Droidspaces、ipset 等现有功能。
+> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 更新至 11.6（保留旧 Netlink 协议）。
+> ZeroMount 内核补丁源 `c2cb7161` 尚无更新，保留现有兼容修复。
+> ZRAM/LZ4 和 ipset 沿用本 LTS 系列的内核实现及修复；它们不是独立的用户态软件包。
+
 > 面向骁龙 8 Elite（SM8750）三星 Galaxy S25 的自定义 Android GKI 内核，基于 Google ACK 真实合并基线。
 
 ![SoC](https://img.shields.io/badge/SoC-Snapdragon_8_Elite-0a7bbb)
 ![Android](https://img.shields.io/badge/Android-15-3ddc84)
-![Kernel](https://img.shields.io/badge/Linux-6.6.138-f6a500)
+![Kernel](https://img.shields.io/badge/Linux-6.6.156-f6a500)
 ![KMI](https://img.shields.io/badge/KMI-android15--8-9aa0a6)
 ![Base](https://img.shields.io/badge/Base-Google_ACK-4285f4)
 ![Root](https://img.shields.io/badge/Root-ReSukiSU%20%2B%20SUSFS%20%2B%20ZeroMount-c2185b)
@@ -20,7 +26,7 @@
 
 本树是 **ACK-rebased** 的：通过为三星 vendor 包重建一个真实的 Google ACK 合并基线、再把 `android15-6.6` LTS `git merge` 进去得到（基线是真正的合并结果，而非重新 diff 的 tarball）。每个新的 LTS（6.6.139、6.6.140…）都在独立的 ACK 工作区里继续前向合并、再导出到这里。
 
-构建是 **mode-driven** 的：git 树是干净基线，**不**提交任何 KSU / SUSFS / ZeroMount / Wild 补丁；`build/build.sh` 在编译期抓取并应用它们，同一份基线既能产出内置 root 版、也能产出纯净版，并保持对 ACK 的可持续前向合并。
+构建是 **mode-driven** 的：git 树是干净基线，**不**提交任何 KSU / SUSFS / ZeroMount 补丁；`build/build.sh` 在编译期抓取并应用它们，同一份基线既能产出内置 root 版、也能产出纯净版，并保持对 ACK 的可持续前向合并。
 
 ---
 
@@ -33,7 +39,6 @@
 - 🧭 **ZeroMount** — 配合 SUSFS 进一步收敛挂载检测面。
 - 📡 **Baseband-guard** — LSM 级保护 modem / vbmeta / dtbo，任何 root 用户都改不动。
 - 🔔 **Re:Kernel** — 内置，提供前后台 / 网络事件通知，便于省电与后台管控。
-- ⚡ **Wild 全套性能补丁** — F2FS/ext4 调优、内存与调度优化、唤醒/功耗优化、日志降噪一整套。
 - 🎮 **NTSync** — Windows NT 风格同步原语，跑 Wine / Proton 游戏更顺。
 - 📦 **Droidspaces 容器** — SYSVIPC / 命名空间 / netfilter 开关，可在 Android 里跑 Linux 容器、chroot。
 - 💾 **NTFS3 读写** — OTG 上的 NTFS 盘可读写（含 LZX/XPRESS 压缩）。
@@ -82,7 +87,6 @@
 | ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android15-6.6/ReSukiSU`） |
 | Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
 | Re:Kernel | ✅ | ✅ | 内置 `build/features/rekernel` |
-| Wild 性能补丁 | ✅ | ✅ | [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) |
 | NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
 | Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
 | Unicode 绕过修复 | ✅ | ✅ | WildKernels |
@@ -95,7 +99,7 @@
 | 三星安全栈禁用 | ✅ | ✅ | 构建期 `scripts/config` 覆盖 |
 
 ¹ `lkm` 模式关闭 SUSFS：`fs/susfs.c` 引用了仅在 `CONFIG_KSU=y` 时才链接的 `ksu_*` 符号。
-² 标 mainline/upstream 的特性源自 Linux 上游，并非 Wild 首创；构建时我们从 [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) 取**已适配到本 GKI 版本**的 backport，省去自行回合的工作。真正属于 Wild 的是上面「Wild 性能补丁」那一行（其自有的性能/降噪调优集）。
+² NTSync、Droidspaces 等已有功能继续保留；Wild 补丁仓库仅用于 Unicode 修复和现有 Droidspaces KABI 补丁，不再应用性能、日志或唤醒调优。
 
 ---
 
@@ -127,8 +131,8 @@ out/arch/arm64/boot/Image                 # 当前模式产出的内核镜像
 ```
 
 Release tag 形如 `sm8750-resukisu-d4985ff`；zip 产物仍保持
-`SM8750_resukisu_6.6.138_0614.zip` 这类命名。内核版本号形如
-`6.6.138-android15-8-YuccaA-d4985ff-4k`，其中 `d4985ff` 是源码短 commit。
+`SM8750_resukisu_6.6.156_0614.zip` 这类命名。内核版本号形如
+`6.6.156-android15-8-YuccaA-d4985ff-4k`，其中 `d4985ff` 是源码短 commit。
 
 ---
 
@@ -190,7 +194,7 @@ A custom kernel for **Galaxy S25** (and S25 Edge), built on **Google ACK `androi
 
 This tree is **ACK-rebased**: it was produced by reconstructing a real Google ACK merge-base for the Samsung vendor drop and `git merge`-ing `android15-6.6` LTS into it (so the base is a true merge result, not a re-diffed tarball). Each new LTS (6.6.139, 6.6.140, …) is merged forward in a separate ACK workbench and re-exported here.
 
-The build is **mode-driven**: the git tree is a clean base with **no** KSU / SUSFS / ZeroMount / Wild patches committed; `build/build.sh` fetches and applies them at build time, so one base produces either variant and stays easy to forward-merge against ACK.
+The build is **mode-driven**: the git tree is a clean base with **no** KSU / SUSFS / ZeroMount patches committed; `build/build.sh` fetches and applies them at build time, so one base produces either variant and stays easy to forward-merge against ACK.
 
 ## ✨ Highlights
 
@@ -198,7 +202,6 @@ The build is **mode-driven**: the git tree is a clean base with **no** KSU / SUS
 
 - 🔓 **Built-in root** — ReSukiSU (KernelSU) compiled in (`resukisu`); or a clean `lkm` mode where root is injected at flash time.
 - 🫥 **SUSFS hiding** · 🧭 **ZeroMount** · 📡 **Baseband-guard** · 🔔 **Re:Kernel**
-- ⚡ **Full Wild performance patch set** — F2FS/ext4 tuning, mm & scheduler tweaks, wakeup/power optimizations, logspam silencing.
 - 🎮 **NTSync** (Wine/Proton) · 📦 **Droidspaces** (Linux containers) · 💾 **NTFS3** (+LZX/XPRESS)
 - 🗜️ **zram lz4 + FQ/BBR** · 📁 **Full tmpfs** (ACL/XATTR/INODE64) · 🕸️ **Full ipset suite**
 - 🕵️ **IPv6 NAT hidden** from `/proc/config.gz` · 🛡️ **Samsung security stack disabled** · 🚀 **ccache**
@@ -228,7 +231,6 @@ Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is 
 | ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android15-6.6/ReSukiSU`) |
 | Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
 | Re:Kernel | ✅ | ✅ | vendored `build/features/rekernel` |
-| Wild perf patches | ✅ | ✅ | WildKernels/kernel_patches |
 | NTSync | ✅ | ✅ | Linux mainline ² |
 | Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
 | Unicode bypass fix | ✅ | ✅ | WildKernels |
@@ -240,7 +242,7 @@ Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is 
 | Samsung security stack disabled | ✅ | ✅ | `scripts/config` overrides |
 
 ¹ SUSFS is off in `lkm`: `fs/susfs.c` references `ksu_*` symbols that only link with `CONFIG_KSU=y`.
-² Features marked mainline/upstream originate in upstream Linux, not Wild. At build time we fetch versions **already backported to this GKI tree** from [WildKernels/kernel_patches](https://github.com/WildKernels/kernel_patches) to avoid re-doing the backport. What is genuinely Wild's is the "Wild perf patches" row (their curated performance/logspam set).
+² Existing NTSync and Droidspaces functionality is retained. The Wild patch repository is used only for the Unicode fix and existing Droidspaces KABI patch; performance, log and wakeup tuning is no longer applied.
 
 ## 🚀 Build
 
@@ -250,7 +252,7 @@ build/build.sh lkm        # pure kernel
 PACK=1 build/build.sh     # also pack an AnyKernel3 zip
 ```
 
-Output: `out/arch/arm64/boot/Image` from the selected mode and, with `PACK=1`, `../SM8750_<tag>_<ver>_<MMDD>.zip`. Release tag example: `sm8750-resukisu-d4985ff`. Kernel release string example: `6.6.138-android15-8-YuccaA-d4985ff-4k`. Requires the Samsung `clang-r510928` prebuilts (`TOOLCHAIN_DIR` defaults to `../toolchain_samsung_sm8750/kernel_platform/prebuilts`) and network on first build; ccache is used automatically when present.
+Output: `out/arch/arm64/boot/Image` from the selected mode and, with `PACK=1`, `../SM8750_<tag>_<ver>_<MMDD>.zip`. Release tag example: `sm8750-resukisu-d4985ff`. Kernel release string example: `6.6.156-android15-8-YuccaA-d4985ff-4k`. Requires the Samsung `clang-r510928` prebuilts (`TOOLCHAIN_DIR` defaults to `../toolchain_samsung_sm8750/kernel_platform/prebuilts`) and network on first build; ccache is used automatically when present.
 
 ## ⚙️ Build switches
 

@@ -49,4 +49,18 @@ reject_grep 'shuf -i|abogki' "$BUILD" \
 reject_grep 'fake_status.*NULL|ksu_selinux_hide_enabled\\).*&& 0|!ksu_selinux_hide_running/1|initialize_fake_status\\(\\);/\\(void\\)0' "$APPLY" \
   "apply_features.sh must not neutralise ReSukiSU/SUSFS SELinux hide"
 
+
+# Performance tuning must not be reintroduced through the build-time patch list.
+reject_grep 'apply_wild_perf|APPLY_WILD_PERF|for p in silence_irq_cpu_logspam' "$APPLY" \
+  "Wild performance injection is removed"
+require_grep 'RESUKISU_REF' "$APPLY" \
+  "ReSukiSU sources must use a fixed revision"
+
+
+require_grep 'REKERNEL_LEGACY_NETLINK' "$BUILD" \
+  "build.sh must preserve the legacy ReKernel userspace transport"
+require_grep 'resukisu-susfs-2.3.patch' "$APPLY" \
+  "SUSFS 2.3 must be adapted to the pinned ReSukiSU exec hook API"
+[ -s "$ROOT/build/features/resukisu-susfs-2.3.patch" ] || fail "missing ReSukiSU compatibility patch"
+
 echo "feature integration checks passed"

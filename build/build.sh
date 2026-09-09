@@ -71,7 +71,7 @@ rm -f localversion
 COMMON_DISABLE="-d UH -d RKP -d KDP -d SECURITY_DEFEX -d INTEGRITY -d FIVE -d TRIM_UNUSED_KSYMS"
 # common features (KSU-independent): NTFS3, zram-lz4, FQ+BBR, NTSync, IPv6 NAT, Re:Kernel, sysvipc/mqueue
 COMMON_ENABLE="-e NTFS3_FS -e NTFS3_LZX_XPRESS -e ZRAM_DEF_COMP_LZ4 --set-str ZRAM_DEF_COMP lz4 \
-  -e NET_SCH_FQ -e TCP_CONG_BBR -e DEFAULT_BBR -e NTSYNC -e IP6_NF_NAT -e REKERNEL \
+  -e NET_SCH_FQ -e TCP_CONG_BBR -e DEFAULT_BBR -e NTSYNC -e IP6_NF_NAT -e REKERNEL -e REKERNEL_LEGACY_NETLINK \
   -e SYSVIPC -e POSIX_MQUEUE -e IPC_NS -e PID_NS -e DEVTMPFS \
   -e NETFILTER_XT_MATCH_ADDRTYPE -e NETFILTER_XT_MATCH_RECENT \
   -e TMPFS -e TMPFS_POSIX_ACL -e TMPFS_XATTR -e TMPFS_INODE64 \
@@ -116,7 +116,7 @@ echo "    Image: $(stat -c%s "$IMG") bytes   release: $REL"
 
 # ---- KPM: dropped ----
 # ReSukiSU upstream removed KPM support entirely (PR #226, merged 2026-06-06).
-# Since drivers/kernelsu is fetched from ReSukiSU @ main, builds no longer carry
+# Since drivers/kernelsu is fetched from the pinned ReSukiSU commit, builds no longer carry
 # the kernel-side KPM driver, so running patch_linux would only stamp an inert
 # patch onto the Image (and falsely log "KPM-patched"). We therefore no longer
 # patch the Image. resukisu mode ships KSU + SUSFS + ZeroMount. To bring KPM back,

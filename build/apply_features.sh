@@ -18,13 +18,14 @@ set +e
 KROOT="$(pwd)"
 MODE="${MODE:-resukisu}"
 CACHE="${CACHE:-$KROOT/.build_cache}"
-SUSFS_PIN="${SUSFS_PIN:-84c8fd6929c0f9a0cdd78f707599b6d76f415d37}"  # susfs4ksu gki-android15-6.6 tip (bumped 2026-06-21)
+SUSFS_PIN="${SUSFS_PIN:-3f0b811b2e105afd8dc858cd71389090e01f404b}" # SUSFS v2.3.0, 2026-09-06
 SUPER_BUILDERS_PIN="${SUPER_BUILDERS_PIN:-c2cb71614868fe742cbffee2b6f3126523432673}" # android15-6.6 ReSukiSU ZeroMount
 WILD_PIN="${WILD_PIN:-5a5d5d8}"
 SUSFS_URL=https://github.com/ShirkNeko/susfs4ksu.git
 SUPER_BUILDERS_URL=https://github.com/Enginex0/Super-Builders.git
 WILD_URL=https://github.com/WildKernels/kernel_patches.git
-RESUKISU_SETUP=https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh
+RESUKISU_REF="${RESUKISU_REF:-f1dd81dc96d7f3f6691e6ac8b50fba9ae8a2f17c}"
+RESUKISU_SETUP="https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/${RESUKISU_REF}/kernel/setup.sh"
 BBG_SETUP=https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$CACHE"
@@ -235,7 +236,8 @@ zeromount_core_present(){
 
 ############################################################
 log "1/7 ReSukiSU sources (KSU symlink must resolve at Kconfig time, even in lkm)"
-curl -LSs "$RESUKISU_SETUP" | bash -s main >/dev/null 2>&1
+( set -o pipefail; curl -fLSs "$RESUKISU_SETUP" | bash -s "$RESUKISU_REF" ) || exit 1
+[ "$(git -C KernelSU rev-parse HEAD)" = "$RESUKISU_REF" ] || { log "ReSukiSU revision mismatch"; exit 1; }
 grep -q 'drivers/kernelsu/Kconfig' drivers/Kconfig && log "  KSU sources present"
 
 if [ "$MODE" = "resukisu" ]; then
@@ -273,14 +275,10 @@ fi
 log "3/7 Baseband-guard"
 ( export PATH="/usr/bin:/bin:$PATH"; curl -fsSL "$BBG_SETUP" | bash >/dev/null 2>&1 ) && log "  bbg ok"
 
-log "4/7 Wild perf patches @ $WILD_PIN"
+log "4/7 retained Unicode/Droidspaces patches @ $WILD_PIN"
 clone_pin "$WILD_URL" "$WILD_PIN" "$CACHE/wild"
 W="$CACHE/wild/common"
-for p in silence_irq_cpu_logspam f2fs_enlarge_min_fsync_blocks f2fs_reduce_congestion reduce_gc_thread_sleep_time \
-  increase_ext4_default_commit_age clear_page_16bytes_align file_struct_8bytes_align disable_cache_hot_buddy \
-  reduce_cache_pressure mem_opt_prefetch optimized_mem_operations int_sqrt add_timeout_wakelocks_globally \
-  avoid_extra_s2idle_wake_attempts minimise_wakeup_time reduce_freeze_timeout reduce_pci_pme_wakeups \
-  increase_sk_mem_packets force_tcp_nodelay; do try_patch "$W/$p.patch" "$p"; done
+
 
 log "5/7 unicode + droidspaces + NTSync"
 try_patch "$W/unicode_bypass_fix_6.1+.patch" unicode
@@ -327,4 +325,12 @@ if 'IP6_NF_NAT_FIX_MARKER' not in s:
         if r in s: s=s.replace(r, r+'\t$(Q)$(config_fix)\n',1)
         p.write_text(s); print('[features] ipv6 hide applied')
 PY
+# ReSukiSU has its own su compatibility implementation. SUSFS 2.3's
+# install_su_fd post-exec API is not part of the pinned ReSukiSU revision.
+if [ "$MODE" = "resukisu" ]; then
+  compat_patch="$HERE/features/resukisu-susfs-2.3.patch"
+  if ! /usr/bin/patch -p1 -R --dry-run --batch --fuzz=0 < "$compat_patch" >/dev/null 2>&1; then
+    /usr/bin/patch -p1 --forward --batch --fuzz=0 --no-backup-if-mismatch < "$compat_patch" || exit 1
+  fi
+fi
 log "feature application complete"
