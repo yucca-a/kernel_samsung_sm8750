@@ -6,9 +6,10 @@
 
 > 2026-09-09 更新：LTS 6.6.156；移除全部 Wild 性能/日志/唤醒调优。
 > 保留 BBR、ZRAM LZ4、Unicode、Droidspaces、ipset 等现有功能。
-> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 升级至官方 11.6，保留 Generic Netlink（11.0 已验证 Freezer 连接正常，11.6 待真机复测）。
+> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 使用官方 11.6 + Generic Netlink；最新 LKM / ReSukiSU 已通过真机启动与 Freezer 连接测试。
 > ZeroMount 内核补丁源 `c2cb7161` 尚无更新，保留现有兼容修复。
 > ZRAM/LZ4 和 ipset 沿用本 LTS 系列的内核实现及修复；它们不是独立的用户态软件包。
+> 已验证发布：[LKM](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-lkm-fac1e80) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-resukisu-fac1e80)
 
 > 面向骁龙 8 Elite（SM8750）三星 Galaxy S25 的自定义 Android GKI 内核，基于 Google ACK 真实合并基线。
 
@@ -86,7 +87,7 @@
 | SUSFS | ✅ | ❌¹ | [ShirkNeko/susfs4ksu](https://github.com/ShirkNeko/susfs4ksu)（`gki-android15-6.6`） |
 | ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android15-6.6/ReSukiSU`） |
 | Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
-| Re:Kernel | ✅ | ✅ | 内置 `build/features/rekernel` |
+| Re:Kernel 11.6（Generic Netlink） | ✅ | ✅ | 官方源码，内置 `build/features/rekernel` |
 | NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
 | Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
 | Unicode 绕过修复 | ✅ | ✅ | WildKernels |
@@ -186,6 +187,9 @@ GPL-2.0。本树派生自：
 
 # kernel_samsung_sm8750
 
+> **2026-09-09 validated release:** Linux 6.6.156 with all Wild performance/log/wakeup tuning removed. Official Re:Kernel 11.6 uses Generic Netlink; the latest LKM and ReSukiSU builds passed device boot and Freezer connectivity tests.
+> Downloads: [LKM](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-lkm-fac1e80) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-resukisu-fac1e80)
+
 > Custom Android GKI kernel for the Snapdragon 8 Elite (SM8750) Galaxy S25, on a real Google ACK merge base.
 
 A custom kernel for **Galaxy S25** (and S25 Edge), built on **Google ACK `android15-6.6`** with Samsung's vendor sources layered on top and merged forward to the latest 6.6.x LTS — Android 15, KMI generation 8.
@@ -230,7 +234,7 @@ Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is 
 | SUSFS | ✅ | ❌¹ | ShirkNeko/susfs4ksu (`gki-android15-6.6`) |
 | ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android15-6.6/ReSukiSU`) |
 | Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
-| Re:Kernel | ✅ | ✅ | vendored `build/features/rekernel` |
+| Re:Kernel 11.6 (Generic Netlink) | ✅ | ✅ | official source, vendored `build/features/rekernel` |
 | NTSync | ✅ | ✅ | Linux mainline ² |
 | Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
 | Unicode bypass fix | ✅ | ✅ | WildKernels |
