@@ -116,8 +116,10 @@ void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
 	if (!new)
 		return NULL;
 
-	if (!ct->ext)
+	if (!ct->ext) {
 		memset(new->offset, 0, sizeof(new->offset));
+		new->gen_id = 0;
+	}
 
 	new->offset[id] = newoff;
 	new->len = newlen;
@@ -127,3 +129,12 @@ void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
 	return (void *)new + newoff;
 }
 EXPORT_SYMBOL(nf_ct_ext_add);
+
+/* Compatibility entry point for the old inline nf_ct_ext_find(). */
+void *__nf_ct_ext_find(const struct nf_ct_ext *ext, u8 id)
+{
+	if (!__nf_ct_ext_exist(ext, id))
+		return NULL;
+	return (void *)ext + ext->offset[id];
+}
+EXPORT_SYMBOL(__nf_ct_ext_find);

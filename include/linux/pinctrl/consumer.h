@@ -29,9 +29,11 @@ struct pinctrl_state;
 extern bool pinctrl_gpio_can_use_line(unsigned gpio);
 extern int pinctrl_gpio_request(unsigned gpio);
 extern void pinctrl_gpio_free(unsigned gpio);
-extern int pinctrl_gpio_direction_input(struct gpio_chip *gc,
+extern int pinctrl_gpio_direction_input(unsigned gpio);
+extern int pinctrl_gpio_direction_output(unsigned gpio);
+extern int pinctrl_gpio_direction_input_gc(struct gpio_chip *gc,
 					unsigned int offset);
-extern int pinctrl_gpio_direction_output(struct gpio_chip *gc,
+extern int pinctrl_gpio_direction_output_gc(struct gpio_chip *gc,
 					 unsigned int offset);
 extern int pinctrl_gpio_set_config(unsigned gpio, unsigned long config);
 
@@ -80,14 +82,24 @@ static inline void pinctrl_gpio_free(unsigned gpio)
 {
 }
 
-static inline int
-pinctrl_gpio_direction_input(struct gpio_chip *gc, unsigned int offset)
+static inline int pinctrl_gpio_direction_input(unsigned gpio)
+{
+	return 0;
+}
+
+static inline int pinctrl_gpio_direction_output(unsigned gpio)
 {
 	return 0;
 }
 
 static inline int
-pinctrl_gpio_direction_output(struct gpio_chip *gc, unsigned int offset)
+pinctrl_gpio_direction_input_gc(struct gpio_chip *gc, unsigned int offset)
+{
+	return 0;
+}
+
+static inline int
+pinctrl_gpio_direction_output_gc(struct gpio_chip *gc, unsigned int offset)
 {
 	return 0;
 }

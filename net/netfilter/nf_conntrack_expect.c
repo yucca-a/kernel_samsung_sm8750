@@ -308,6 +308,7 @@ struct nf_conntrack_expect *nf_ct_expect_alloc(struct nf_conn *me)
 	if (!new)
 		return NULL;
 
+	nf_ct_expect_creator(new) = NULL;
 	new->master = me;
 	refcount_set(&new->use, 1);
 	return new;
@@ -338,7 +339,7 @@ void nf_ct_expect_init(struct nf_conntrack_expect *exp, unsigned int class,
 	if (help)
 		helper = rcu_dereference(help->helper);
 
-	rcu_assign_pointer(exp->helper, helper);
+	rcu_assign_pointer(nf_ct_expect_creator(exp), helper);
 	rcu_assign_pointer(exp->assign_helper, NULL);
 	exp->tuple.src.l3num = family;
 	exp->tuple.dst.protonum = proto;
@@ -744,7 +745,7 @@ int nf_conntrack_expect_init(void)
 	}
 	nf_ct_expect_max = nf_ct_expect_hsize * 4;
 	nf_ct_expect_cachep = kmem_cache_create("nf_conntrack_expect",
-				sizeof(struct nf_conntrack_expect),
+				sizeof(struct nf_ct_expect_storage),
 				0, 0, NULL);
 	if (!nf_ct_expect_cachep)
 		return -ENOMEM;

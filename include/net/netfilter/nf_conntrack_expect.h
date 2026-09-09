@@ -39,11 +39,15 @@ struct nf_conntrack_expect {
 	void (*expectfn)(struct nf_conn *new,
 			 struct nf_conntrack_expect *this);
 
-	/* Helper that created this expectation */
-	struct nf_conntrack_helper __rcu *helper;
-
-	/* Helper to assign to new connection */
-	struct nf_conntrack_helper __rcu *assign_helper;
+	/* Keep the old helper slot's assignment semantics for vendor modules. */
+#ifdef __GENKSYMS__
+	struct nf_conntrack_helper *helper;
+#else
+	union {
+		struct nf_conntrack_helper *helper;
+		struct nf_conntrack_helper __rcu *assign_helper;
+	};
+#endif
 
 	/* The conntrack of the master connection */
 	struct nf_conn *master;
@@ -62,6 +66,16 @@ struct nf_conntrack_expect {
 
 	struct rcu_head rcu;
 };
+
+/* Allocator-owned extension, outside the vendor-visible expectation. */
+struct nf_ct_expect_storage {
+	struct nf_conntrack_expect exp;
+	struct nf_conntrack_helper __rcu *creator;
+};
+
+
+#define nf_ct_expect_creator(_exp) \
+	(container_of(_exp, struct nf_ct_expect_storage, exp)->creator)
 
 static inline struct net *nf_ct_exp_net(struct nf_conntrack_expect *exp)
 {

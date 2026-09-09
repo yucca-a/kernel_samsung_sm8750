@@ -353,6 +353,9 @@ enum skb_drop_reason {
 	 * @SKB_DROP_REASON_TC_COOKIE_ERROR: An error occurred whilst
 	 * processing a tc ext cookie.
 	 */
+
+#ifndef __GENKSYMS__
+	/* New reasons are appended; existing reason values stay unchanged. */
 	SKB_DROP_REASON_TC_COOKIE_ERROR,
 	/**
 	 * @SKB_DROP_REASON_PACKET_SOCK_ERROR: generic packet socket errors
@@ -366,6 +369,7 @@ enum skb_drop_reason {
 	 * iterations.
 	 */
 	SKB_DROP_REASON_TC_RECLASSIFY_LOOP,
+#endif
 	/**
 	 * @SKB_DROP_REASON_MAX: the maximum of core drop reasons, which
 	 * shouldn't be used as a real 'reason' - only for tracing code gen

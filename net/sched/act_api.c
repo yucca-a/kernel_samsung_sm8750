@@ -110,9 +110,28 @@ struct tcf_chain *tcf_action_set_ctrlact(struct tc_action *a, int action,
 }
 EXPORT_SYMBOL(tcf_action_set_ctrlact);
 
+/* Keep the RCU callback outside the vendor-visible tc_action layout. */
+struct tcf_action_rcu {
+	struct rcu_head rcu;
+	struct tc_action *action;
+};
+
+static size_t tcf_action_rcu_offset(const struct tc_action_ops *ops)
+{
+	return ALIGN(ops->size, __alignof__(struct tcf_action_rcu));
+}
+
+static void tcf_action_free_rcu(struct rcu_head *head)
+{
+	struct tcf_action_rcu *state = container_of(head, struct tcf_action_rcu, rcu);
+
+	kfree(state->action);
+}
+
 static void free_tcf(struct tc_action *p)
 {
 	struct tcf_chain *chain = rcu_dereference_protected(p->goto_chain, 1);
+	struct tcf_action_rcu *state = (void *)p + tcf_action_rcu_offset(p->ops);
 
 	free_percpu(p->cpu_bstats);
 	free_percpu(p->cpu_bstats_hw);
@@ -122,7 +141,8 @@ static void free_tcf(struct tc_action *p)
 	if (chain)
 		tcf_chain_put_by_act(chain);
 
-	kfree_rcu(p, tcfa_rcu);
+	state->action = p;
+	call_rcu(&state->rcu, tcf_action_free_rcu);
 }
 
 static void offload_action_hw_count_set(struct tc_action *act,
@@ -732,7 +752,8 @@ int tcf_idr_create(struct tc_action_net *tn, u32 index, struct nlattr *est,
 		   struct tc_action **a, const struct tc_action_ops *ops,
 		   int bind, bool cpustats, u32 flags)
 {
-	struct tc_action *p = kzalloc(ops->size, GFP_KERNEL);
+	struct tc_action *p = kzalloc(tcf_action_rcu_offset(ops) +
+				     sizeof(struct tcf_action_rcu), GFP_KERNEL);
 	struct tcf_idrinfo *idrinfo = tn->idrinfo;
 	int err = -ENOMEM;
 

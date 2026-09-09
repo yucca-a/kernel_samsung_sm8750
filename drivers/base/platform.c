@@ -561,6 +561,7 @@ static void platform_device_release(struct device *dev)
 	kfree(pa->pdev.dev.platform_data);
 	kfree(pa->pdev.mfd_cell);
 	kfree(pa->pdev.resource);
+	kfree(pa->pdev.driver_override);
 	kfree(pa);
 }
 
@@ -1312,6 +1313,8 @@ static int platform_match(struct device *dev, struct device_driver *drv)
 	ret = device_match_driver_override(dev, drv);
 	if (ret >= 0)
 		return ret;
+	if (pdev->driver_override)
+		return !strcmp(pdev->driver_override, drv->name);
 
 	/* Attempt an OF style match first */
 	if (of_driver_match_device(dev, drv))

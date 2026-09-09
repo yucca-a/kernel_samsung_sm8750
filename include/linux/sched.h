@@ -864,7 +864,6 @@ struct task_struct {
 
 	struct mm_struct		*mm;
 	struct mm_struct		*active_mm;
-	struct address_space		*faults_disabled_mapping;
 
 	int				exit_state;
 	int				exit_code;
@@ -901,9 +900,6 @@ struct task_struct {
 	 * ->sched_remote_wakeup gets used, so it can be in this word.
 	 */
 	unsigned			sched_remote_wakeup:1;
-
-	/* Save user-dumpable when mm goes away */
-	unsigned			user_dumpable:1;
 
 	/* Bit to tell LSMs we're in execve(): */
 	unsigned			in_execve:1;
@@ -1500,10 +1496,6 @@ struct task_struct {
 	unsigned long			prev_lowest_stack;
 #endif
 
-#ifdef CONFIG_RANDOMIZE_KSTACK_OFFSET
-	u32				kstack_offset;
-#endif
-
 #ifdef CONFIG_X86_MCE
 	void __user			*mce_vaddr;
 	__u64				mce_kflags;
@@ -1537,8 +1529,12 @@ struct task_struct {
 
 	ANDROID_KABI_USE(1, struct task_dma_buf_info *dmabuf_info);
 
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_USE(2, struct address_space *faults_disabled_mapping);
+#ifdef CONFIG_RANDOMIZE_KSTACK_OFFSET
+	ANDROID_KABI_USE2(3, bool user_dumpable, u32 kstack_offset);
+#else
+	ANDROID_KABI_USE(3, bool user_dumpable);
+#endif
 	ANDROID_KABI_RESERVE(4);
 	ANDROID_KABI_RESERVE(5);
 	ANDROID_KABI_RESERVE(6);

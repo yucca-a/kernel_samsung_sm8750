@@ -914,7 +914,7 @@ static const struct pinmux_ops sunxi_pmx_ops = {
 	.strict			= true,
 };
 
-static int sunxi_pinctrl_gpio_direction_input(struct gpio_chip *chip,
+static int sunxi_pinctrl_gpio_direction_input_gc(struct gpio_chip *chip,
 					unsigned offset)
 {
 	struct sunxi_pinctrl *pctl = gpiochip_get_data(chip);
@@ -967,7 +967,7 @@ static void sunxi_pinctrl_gpio_set(struct gpio_chip *chip,
 	raw_spin_unlock_irqrestore(&pctl->lock, flags);
 }
 
-static int sunxi_pinctrl_gpio_direction_output(struct gpio_chip *chip,
+static int sunxi_pinctrl_gpio_direction_output_gc(struct gpio_chip *chip,
 					unsigned offset, int value)
 {
 	struct sunxi_pinctrl *pctl = gpiochip_get_data(chip);
@@ -1579,8 +1579,8 @@ int sunxi_pinctrl_init_with_variant(struct platform_device *pdev,
 	pctl->chip->request = gpiochip_generic_request;
 	pctl->chip->free = gpiochip_generic_free;
 	pctl->chip->set_config = gpiochip_generic_config;
-	pctl->chip->direction_input = sunxi_pinctrl_gpio_direction_input;
-	pctl->chip->direction_output = sunxi_pinctrl_gpio_direction_output;
+	pctl->chip->direction_input = sunxi_pinctrl_gpio_direction_input_gc;
+	pctl->chip->direction_output = sunxi_pinctrl_gpio_direction_output_gc;
 	pctl->chip->get = sunxi_pinctrl_gpio_get;
 	pctl->chip->set = sunxi_pinctrl_gpio_set;
 	pctl->chip->of_xlate = sunxi_pinctrl_gpio_of_xlate;

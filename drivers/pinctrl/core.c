@@ -873,7 +873,7 @@ static int pinctrl_gpio_direction(unsigned gpio, bool input)
 }
 
 /**
- * pinctrl_gpio_direction_input() - request a GPIO pin to go into input mode
+ * pinctrl_gpio_direction_input_gc() - request a GPIO pin to go into input mode
  * @gc: GPIO chip structure from the GPIO subsystem
  * @offset: hardware offset of the GPIO relative to the controller
  *
@@ -881,14 +881,14 @@ static int pinctrl_gpio_direction(unsigned gpio, bool input)
  * as part of their gpio_direction_input() semantics, platforms and individual
  * drivers shall *NOT* touch pin control GPIO calls.
  */
-int pinctrl_gpio_direction_input(struct gpio_chip *gc, unsigned int offset)
+int pinctrl_gpio_direction_input_gc(struct gpio_chip *gc, unsigned int offset)
 {
 	return pinctrl_gpio_direction(gc->base + offset, true);
 }
-EXPORT_SYMBOL_GPL(pinctrl_gpio_direction_input);
+EXPORT_SYMBOL_GPL(pinctrl_gpio_direction_input_gc);
 
 /**
- * pinctrl_gpio_direction_output() - request a GPIO pin to go into output mode
+ * pinctrl_gpio_direction_output_gc() - request a GPIO pin to go into output mode
  * @gc: GPIO chip structure from the GPIO subsystem
  * @offset: hardware offset of the GPIO relative to the controller
  *
@@ -896,9 +896,22 @@ EXPORT_SYMBOL_GPL(pinctrl_gpio_direction_input);
  * as part of their gpio_direction_output() semantics, platforms and individual
  * drivers shall *NOT* touch pin control GPIO calls.
  */
-int pinctrl_gpio_direction_output(struct gpio_chip *gc, unsigned int offset)
+int pinctrl_gpio_direction_output_gc(struct gpio_chip *gc, unsigned int offset)
 {
 	return pinctrl_gpio_direction(gc->base + offset, false);
+}
+EXPORT_SYMBOL_GPL(pinctrl_gpio_direction_output_gc);
+
+/* Preserve the global-GPIO ABI used by prebuilt vendor modules. */
+int pinctrl_gpio_direction_input(unsigned gpio)
+{
+	return pinctrl_gpio_direction(gpio, true);
+}
+EXPORT_SYMBOL_GPL(pinctrl_gpio_direction_input);
+
+int pinctrl_gpio_direction_output(unsigned gpio)
+{
+	return pinctrl_gpio_direction(gpio, false);
 }
 EXPORT_SYMBOL_GPL(pinctrl_gpio_direction_output);
 

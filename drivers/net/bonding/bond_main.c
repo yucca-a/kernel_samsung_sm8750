@@ -1473,7 +1473,6 @@ static int bond_header_create(struct sk_buff *skb, struct net_device *bond_dev,
 			      const void *saddr, unsigned int len)
 {
 	struct bonding *bond = netdev_priv(bond_dev);
-	const struct header_ops *slave_ops;
 	struct slave *slave;
 	int ret = 0;
 
@@ -1489,7 +1488,7 @@ static int bond_header_create(struct sk_buff *skb, struct net_device *bond_dev,
 	return ret;
 }
 
-static int bond_header_parse(const struct sk_buff *skb,
+static int bond_header_parse_dev(const struct sk_buff *skb,
 			     const struct net_device *dev,
 			     unsigned char *haddr)
 {
@@ -1500,18 +1499,21 @@ static int bond_header_parse(const struct sk_buff *skb,
 
 	rcu_read_lock();
 	slave = rcu_dereference(bond->curr_active_slave);
-	if (slave) {
-		slave_ops = READ_ONCE(slave->dev->header_ops);
-		if (slave_ops && slave_ops->parse)
-			ret = slave_ops->parse(skb, slave->dev, haddr);
-	}
+	if (slave)
+		ret = dev_parse_header_for_dev(skb, slave->dev, haddr);
 	rcu_read_unlock();
 	return ret;
+}
+
+static int bond_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+{
+	return bond_header_parse_dev(skb, skb->dev, haddr);
 }
 
 static const struct header_ops bond_header_ops = {
 	.create	= bond_header_create,
 	.parse	= bond_header_parse,
+	.parse_dev	= bond_header_parse_dev,
 };
 
 static void bond_setup_by_slave(struct net_device *bond_dev,

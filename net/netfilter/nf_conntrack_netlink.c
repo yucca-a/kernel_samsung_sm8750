@@ -2978,7 +2978,7 @@ static __be32 nf_expect_get_id(const struct nf_conntrack_expect *exp)
 	net_get_random_once(&exp_id_seed, sizeof(exp_id_seed));
 
 	a = (unsigned long)exp;
-	b = (unsigned long)exp->helper;
+	b = (unsigned long)nf_ct_expect_creator(exp);
 	c = (unsigned long)exp->master;
 	d = (unsigned long)siphash(&exp->tuple, sizeof(exp->tuple), &exp_id_seed);
 
@@ -3568,7 +3568,7 @@ ctnetlink_alloc_expect(const struct nlattr * const cda[], struct nf_conn *ct,
 
 	exp->class = class;
 	exp->master = ct;
-	rcu_assign_pointer(exp->helper, helper);
+	rcu_assign_pointer(nf_ct_expect_creator(exp), helper);
 	rcu_assign_pointer(exp->assign_helper, assign_helper);
 	exp->tuple = *tuple;
 	exp->mask.src.u3 = mask->src.u3;

@@ -37,7 +37,7 @@ _resize_bar(struct drm_i915_private *i915, int resno, resource_size_t size)
 
 	_release_bars(pdev);
 
-	ret = pci_resize_resource(pdev, resno, bar_size, 0);
+	ret = pci_resize_resource_exclude(pdev, resno, bar_size, 0);
 	if (ret) {
 		drm_info(&i915->drm, "Failed to resize BAR%d to %dM (%pe)\n",
 			 resno, 1 << bar_size, ERR_PTR(ret));
@@ -97,7 +97,7 @@ static void i915_resize_lmem_bar(struct drm_i915_private *i915, resource_size_t 
 			break;
 	}
 
-	/* pci_resize_resource will fail anyways */
+	/* pci_resize_resource_exclude will fail anyways */
 	if (!root_res) {
 		drm_info(&i915->drm, "Can't resize LMEM BAR - platform support is missing\n");
 		return;

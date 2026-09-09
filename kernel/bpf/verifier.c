@@ -1738,9 +1738,38 @@ static void free_func_state(struct bpf_func_state *state)
 	kfree(state);
 }
 
+/*
+ * Keep the legacy index-pair array visible to offload drivers. The richer
+ * LTS precision-tracking entries are owned separately by the verifier.
+ */
+struct bpf_jmp_history_storage {
+	struct bpf_jmp_history_entry *entries;
+	struct bpf_idx_pair pairs[];
+};
+
+static struct bpf_jmp_history_storage *
+jmp_history_storage(const struct bpf_verifier_state *state)
+{
+	return state->jmp_history ?
+		container_of((void *)state->jmp_history, struct bpf_jmp_history_storage, pairs) :
+		NULL;
+}
+
+static struct bpf_jmp_history_entry *
+bpf_jmp_history(const struct bpf_verifier_state *state)
+{
+	struct bpf_jmp_history_storage *storage = jmp_history_storage(state);
+
+	return storage ? storage->entries : NULL;
+}
+
 static void clear_jmp_history(struct bpf_verifier_state *state)
 {
-	kfree(state->jmp_history);
+	struct bpf_jmp_history_storage *storage = jmp_history_storage(state);
+
+	if (storage)
+		kfree(storage->entries);
+	kfree(storage);
 	state->jmp_history = NULL;
 	state->jmp_history_cnt = 0;
 }
@@ -1780,12 +1809,26 @@ static int copy_verifier_state(struct bpf_verifier_state *dst_state,
 	struct bpf_func_state *dst;
 	int i, err;
 
-	dst_state->jmp_history = copy_array(dst_state->jmp_history, src->jmp_history,
-					  src->jmp_history_cnt, sizeof(*dst_state->jmp_history),
-					  GFP_USER);
-	if (!dst_state->jmp_history)
-		return -ENOMEM;
-	dst_state->jmp_history_cnt = src->jmp_history_cnt;
+	clear_jmp_history(dst_state);
+	if (src->jmp_history_cnt) {
+		struct bpf_jmp_history_storage *storage;
+
+		storage = kmalloc(struct_size(storage, pairs, src->jmp_history_cnt),
+				  GFP_USER);
+		if (!storage)
+			return -ENOMEM;
+		storage->entries = kmemdup(bpf_jmp_history(src),
+					  array_size(src->jmp_history_cnt,
+						     sizeof(*storage->entries)), GFP_USER);
+		if (!storage->entries) {
+			kfree(storage);
+			return -ENOMEM;
+		}
+		memcpy(storage->pairs, src->jmp_history,
+		       array_size(src->jmp_history_cnt, sizeof(*storage->pairs)));
+		dst_state->jmp_history = storage->pairs;
+		dst_state->jmp_history_cnt = src->jmp_history_cnt;
+	}
 
 	/* if dst has more stack frames then src frame, free them */
 	for (i = src->curframe + 1; i <= dst_state->curframe; i++) {
@@ -3524,6 +3567,7 @@ static int push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_st
 			    int insn_flags, u64 linked_regs)
 {
 	u32 cnt = cur->jmp_history_cnt;
+	struct bpf_jmp_history_storage *storage;
 	struct bpf_jmp_history_entry *p;
 	size_t alloc_size;
 
@@ -3546,16 +3590,25 @@ static int push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_st
 
 	cnt++;
 	alloc_size = kmalloc_size_roundup(size_mul(cnt, sizeof(*p)));
-	p = krealloc(cur->jmp_history, alloc_size, GFP_USER);
+	storage = krealloc(jmp_history_storage(cur),
+			   struct_size(storage, pairs, cnt), GFP_USER);
+	if (!storage)
+		return -ENOMEM;
+	if (!cur->jmp_history)
+		storage->entries = NULL;
+	cur->jmp_history = storage->pairs;
+	p = krealloc(storage->entries, alloc_size, GFP_USER);
 	if (!p)
 		return -ENOMEM;
-	cur->jmp_history = p;
+	storage->entries = p;
 
-	p = &cur->jmp_history[cnt - 1];
+	p = &storage->entries[cnt - 1];
 	p->idx = env->insn_idx;
 	p->prev_idx = env->prev_insn_idx;
 	p->flags = insn_flags;
 	p->linked_regs = linked_regs;
+	cur->jmp_history[cnt - 1].idx = p->idx;
+	cur->jmp_history[cnt - 1].prev_idx = p->prev_idx;
 	cur->jmp_history_cnt = cnt;
 	env->cur_hist_ent = p;
 
@@ -3565,8 +3618,8 @@ static int push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_st
 static struct bpf_jmp_history_entry *get_jmp_hist_entry(struct bpf_verifier_state *st,
 						        u32 hist_end, int insn_idx)
 {
-	if (hist_end > 0 && st->jmp_history[hist_end - 1].idx == insn_idx)
-		return &st->jmp_history[hist_end - 1];
+	if (hist_end > 0 && bpf_jmp_history(st)[hist_end - 1].idx == insn_idx)
+		return &bpf_jmp_history(st)[hist_end - 1];
 	return NULL;
 }
 

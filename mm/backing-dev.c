@@ -447,6 +447,16 @@ static int wb_init(struct bdi_writeback *wb, struct backing_dev_info *bdi,
 			goto out_destroy_stat;
 	}
 
+#ifdef CONFIG_CGROUP_WRITEBACK
+	wb->switch_state = kzalloc(sizeof(*wb->switch_state), gfp);
+	if (!wb->switch_state) {
+		err = -ENOMEM;
+		goto out_destroy_stat;
+	}
+	wb->switch_state->wb = wb;
+	INIT_WORK(&wb->switch_state->work, inode_switch_wbs_work_fn);
+	init_llist_head(&wb->switch_state->contexts);
+#endif
 	return 0;
 
 out_destroy_stat:
@@ -493,6 +503,9 @@ static void wb_exit(struct bdi_writeback *wb)
 		percpu_counter_destroy(&wb->stat[i]);
 
 	fprop_local_destroy_percpu(&wb->completions);
+#ifdef CONFIG_CGROUP_WRITEBACK
+	kfree(wb->switch_state);
+#endif
 }
 
 #ifdef CONFIG_CGROUP_WRITEBACK
@@ -542,10 +555,10 @@ static void cgwb_release_workfn(struct work_struct *work)
 	list_del(&wb->offline_node);
 	spin_unlock_irq(&cgwb_lock);
 
+	WARN_ON_ONCE(work_pending(&wb->switch_state->work));
 	wb_exit(wb);
 	bdi_put(bdi);
 	WARN_ON_ONCE(!list_empty(&wb->b_attached));
-	WARN_ON_ONCE(work_pending(&wb->switch_work));
 	call_rcu(&wb->rcu, cgwb_free_rcu);
 }
 
@@ -622,8 +635,6 @@ static int cgwb_create(struct backing_dev_info *bdi,
 	wb->memcg_css = memcg_css;
 	wb->blkcg_css = blkcg_css;
 	INIT_LIST_HEAD(&wb->b_attached);
-	INIT_WORK(&wb->switch_work, inode_switch_wbs_work_fn);
-	init_llist_head(&wb->switch_wbs_ctxs);
 	INIT_WORK(&wb->release_work, cgwb_release_workfn);
 	set_bit(WB_registered, &wb->state);
 	bdi_get(bdi);
@@ -754,8 +765,6 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
 	if (!ret) {
 		bdi->wb.memcg_css = &root_mem_cgroup->css;
 		bdi->wb.blkcg_css = blkcg_root_css;
-		INIT_WORK(&bdi->wb.switch_work, inode_switch_wbs_work_fn);
-		init_llist_head(&bdi->wb.switch_wbs_ctxs);
 	}
 	return ret;
 }

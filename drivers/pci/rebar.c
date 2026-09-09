@@ -154,7 +154,7 @@ void pci_restore_rebar_state(struct pci_dev *pdev)
 }
 
 /**
- * pci_resize_resource - reconfigure a Resizable BAR and resources
+ * pci_resize_resource_exclude - reconfigure a Resizable BAR and resources
  * @dev: the PCI device
  * @resno: index of the BAR to be resized
  * @size: new size as defined in the spec (0=1MB, 31=128TB)
@@ -173,7 +173,7 @@ void pci_restore_rebar_state(struct pci_dev *pdev)
  * Return: 0 on success, or negative on error. In case of an error, the
  *         resources are restored to their original places.
  */
-int pci_resize_resource(struct pci_dev *dev, int resno, int size,
+int pci_resize_resource_exclude(struct pci_dev *dev, int resno, int size,
 			int exclude_bars)
 {
 	struct pci_host_bridge *host;
@@ -214,5 +214,11 @@ int pci_resize_resource(struct pci_dev *dev, int resno, int size,
 error_resize:
 	pci_rebar_set_size(dev, resno, old);
 	return ret;
+}
+EXPORT_SYMBOL(pci_resize_resource_exclude);
+
+int pci_resize_resource(struct pci_dev *dev, int resno, int size)
+{
+	return pci_resize_resource_exclude(dev, resno, size, 0);
 }
 EXPORT_SYMBOL(pci_resize_resource);

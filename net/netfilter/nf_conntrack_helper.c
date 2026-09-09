@@ -423,7 +423,7 @@ static bool expect_iter_me(struct nf_conntrack_expect *exp, void *data)
 	const struct nf_conntrack_helper *me = data;
 	const struct nf_conntrack_helper *this;
 
-	if (exp->helper == me)
+	if (nf_ct_expect_creator(exp) == me)
 		return true;
 
 	this = rcu_dereference_protected(help->helper,

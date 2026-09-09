@@ -315,9 +315,7 @@ struct header_ops {
 	int	(*create) (struct sk_buff *skb, struct net_device *dev,
 			   unsigned short type, const void *daddr,
 			   const void *saddr, unsigned int len);
-	int	(*parse)(const struct sk_buff *skb,
-			 const struct net_device *dev,
-			 unsigned char *haddr);
+	int	(*parse)(const struct sk_buff *skb, unsigned char *haddr);
 	int	(*cache)(const struct neighbour *neigh, struct hh_cache *hh, __be16 type);
 	void	(*cache_update)(struct hh_cache *hh,
 				const struct net_device *dev,
@@ -325,7 +323,9 @@ struct header_ops {
 	bool	(*validate)(const char *ll_header, unsigned int len);
 	__be16	(*parse_protocol)(const struct sk_buff *skb);
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, int (*parse_dev)(const struct sk_buff *skb,
+					  const struct net_device *dev,
+					  unsigned char *haddr));
 	ANDROID_KABI_RESERVE(2);
 };
 
@@ -2787,13 +2787,22 @@ struct pcpu_sw_netstats {
 } __aligned(4 * sizeof(u64));
 
 struct pcpu_dstats {
-	u64_stats_t		rx_packets;
-	u64_stats_t		rx_bytes;
-	u64_stats_t		tx_packets;
-	u64_stats_t		tx_bytes;
-	u64_stats_t		rx_drops;
-	u64_stats_t		tx_drops;
-	struct u64_stats_sync	syncp;
+#ifdef __GENKSYMS__
+	u64 rx_packets;
+	u64 rx_bytes;
+	u64 rx_drops;
+	u64 tx_packets;
+	u64 tx_bytes;
+	u64 tx_drops;
+#else
+	u64_stats_t rx_packets;
+	u64_stats_t rx_bytes;
+	u64_stats_t rx_drops;
+	u64_stats_t tx_packets;
+	u64_stats_t tx_bytes;
+	u64_stats_t tx_drops;
+#endif
+	struct u64_stats_sync syncp;
 } __aligned(8 * sizeof(u64));
 
 struct pcpu_lstats {
@@ -2806,8 +2815,19 @@ void dev_lstats_read(struct net_device *dev, u64 *packets, u64 *bytes);
 
 static inline void dev_sw_netstats_rx_add(struct net_device *dev, unsigned int len)
 {
-	struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+	struct pcpu_sw_netstats *tstats;
 
+	/* DSTATS retains the vendor ABI layout, not the TSTATS layout. */
+	if (dev->pcpu_stat_type == NETDEV_PCPU_STAT_DSTATS) {
+		struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
+
+		u64_stats_update_begin(&dstats->syncp);
+		u64_stats_add(&dstats->rx_bytes, len);
+		u64_stats_inc(&dstats->rx_packets);
+		u64_stats_update_end(&dstats->syncp);
+		return;
+	}
+	tstats = this_cpu_ptr(dev->tstats);
 	u64_stats_update_begin(&tstats->syncp);
 	u64_stats_add(&tstats->rx_bytes, len);
 	u64_stats_inc(&tstats->rx_packets);
@@ -2818,8 +2838,18 @@ static inline void dev_sw_netstats_tx_add(struct net_device *dev,
 					  unsigned int packets,
 					  unsigned int len)
 {
-	struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+	struct pcpu_sw_netstats *tstats;
 
+	if (dev->pcpu_stat_type == NETDEV_PCPU_STAT_DSTATS) {
+		struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
+
+		u64_stats_update_begin(&dstats->syncp);
+		u64_stats_add(&dstats->tx_bytes, len);
+		u64_stats_add(&dstats->tx_packets, packets);
+		u64_stats_update_end(&dstats->syncp);
+		return;
+	}
+	tstats = this_cpu_ptr(dev->tstats);
 	u64_stats_update_begin(&tstats->syncp);
 	u64_stats_add(&tstats->tx_bytes, len);
 	u64_stats_add(&tstats->tx_packets, packets);
@@ -3250,14 +3280,23 @@ static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
 	return dev->header_ops->create(skb, dev, type, daddr, saddr, len);
 }
 
+static inline int dev_parse_header_for_dev(const struct sk_buff *skb,
+					   const struct net_device *dev,
+					   unsigned char *haddr)
+{
+	const struct header_ops *ops = READ_ONCE(dev->header_ops);
+
+	if (!ops)
+		return 0;
+	if (ops->parse_dev)
+		return ops->parse_dev(skb, dev, haddr);
+	return ops->parse ? ops->parse(skb, haddr) : 0;
+}
+
 static inline int dev_parse_header(const struct sk_buff *skb,
 				   unsigned char *haddr)
 {
-	const struct net_device *dev = skb->dev;
-
-	if (!dev->header_ops || !dev->header_ops->parse)
-		return 0;
-	return dev->header_ops->parse(skb, dev, haddr);
+	return dev_parse_header_for_dev(skb, skb->dev, haddr);
 }
 
 static inline __be16 dev_parse_header_protocol(const struct sk_buff *skb)

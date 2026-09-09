@@ -101,7 +101,6 @@ struct Qdisc {
 	struct hlist_node       hash;
 	u32			handle;
 	u32			parent;
-	int			depth;
 
 	struct netdev_queue	*dev_queue;
 
@@ -118,7 +117,6 @@ struct Qdisc {
 	struct qdisc_skb_head	q;
 	struct gnet_stats_basic_sync bstats;
 	struct gnet_stats_queue	qstats;
-	int                     owner;
 	unsigned long		state;
 	unsigned long		state2; /* must be written under qdisc spinlock */
 	struct Qdisc            *next_sched;
@@ -130,7 +128,7 @@ struct Qdisc {
 	struct rcu_head		rcu;
 	netdevice_tracker	dev_tracker;
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE2(1, int depth, int owner);
 
 	/* private data */
 	long privdata[] ____cacheline_aligned;
@@ -436,8 +434,11 @@ struct tcf_proto {
 	 */
 	spinlock_t		lock;
 	bool			deleting;
+#ifndef __GENKSYMS__
+	/* These bytes were padding before refcnt in the frozen arm64 ABI. */
 	bool			counted;
 	bool			usesw;
+#endif
 	refcount_t		refcnt;
 	struct rcu_head		rcu;
 	struct hlist_node	destroy_ht_node;
@@ -480,13 +481,16 @@ struct tcf_block {
 	u32 index; /* block index for shared blocks */
 	u32 classid; /* which class this block belongs to */
 	refcount_t refcnt;
+#ifndef __GENKSYMS__
+	/* Fill the arm64 alignment hole before net, without moving it. */
+	atomic_t useswcnt;
+#endif
 	struct net *net;
 	struct Qdisc *q;
 	struct rw_semaphore cb_lock; /* protects cb_list and offload counters */
 	struct flow_block flow_block;
 	struct list_head owner_list;
 	bool keep_dst;
-	atomic_t useswcnt;
 	atomic_t offloadcnt; /* Number of oddloaded filters */
 	unsigned int nooffloaddevcnt; /* Number of devs unable to do offload */
 	unsigned int lockeddevcnt; /* Number of devs that require rtnl lock. */

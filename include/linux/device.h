@@ -738,10 +738,6 @@ struct device {
 					   core doesn't touch it */
 	void		*driver_data;	/* Driver data, set and get with
 					   dev_set_drvdata/dev_get_drvdata */
-	struct {
-		const char	*name;
-		spinlock_t	lock;
-	} driver_override;
 	struct mutex		mutex;	/* mutex to synchronize calls to
 					 * its driver.
 					 */
@@ -830,8 +826,11 @@ struct device {
 	bool			dma_ops_bypass : 1;
 #endif
 	ANDROID_KABI_USE(1, unsigned long flags[BITS_TO_LONGS(DEV_FLAG_COUNT)]);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
+	_ANDROID_KABI_REPLACE(ANDROID_KABI_RESERVE(2); ANDROID_KABI_RESERVE(3),
+		struct {
+			const char *name;
+			spinlock_t lock;
+		} driver_override);
 	ANDROID_KABI_RESERVE(4);
 	ANDROID_KABI_RESERVE(5);
 	ANDROID_KABI_RESERVE(6);

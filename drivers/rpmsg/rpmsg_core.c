@@ -462,6 +462,8 @@ static int rpmsg_dev_match(struct device *dev, struct device_driver *drv)
 	ret = device_match_driver_override(dev, drv);
 	if (ret >= 0)
 		return ret;
+	if (rpdev->driver_override)
+		return !strcmp(rpdev->driver_override, drv->name);
 
 	if (ids)
 		for (i = 0; ids[i].name[0]; i++)

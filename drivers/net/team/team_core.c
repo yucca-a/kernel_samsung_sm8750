@@ -2149,7 +2149,6 @@ static int team_header_create(struct sk_buff *skb, struct net_device *team_dev,
 			      const void *saddr, unsigned int len)
 {
 	struct team *team = netdev_priv(team_dev);
-	const struct header_ops *port_ops;
 	struct team_port *port;
 	int ret = 0;
 
@@ -2165,7 +2164,7 @@ static int team_header_create(struct sk_buff *skb, struct net_device *team_dev,
 	return ret;
 }
 
-static int team_header_parse(const struct sk_buff *skb,
+static int team_header_parse_dev(const struct sk_buff *skb,
 			     const struct net_device *team_dev,
 			     unsigned char *haddr)
 {
@@ -2176,18 +2175,21 @@ static int team_header_parse(const struct sk_buff *skb,
 
 	rcu_read_lock();
 	port = team_header_port_get_rcu(team, false);
-	if (port) {
-		port_ops = READ_ONCE(port->dev->header_ops);
-		if (port_ops && port_ops->parse)
-			ret = port_ops->parse(skb, port->dev, haddr);
-	}
+	if (port)
+		ret = dev_parse_header_for_dev(skb, port->dev, haddr);
 	rcu_read_unlock();
 	return ret;
+}
+
+static int team_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+{
+	return team_header_parse_dev(skb, skb->dev, haddr);
 }
 
 static const struct header_ops team_header_ops = {
 	.create		= team_header_create,
 	.parse		= team_header_parse,
+	.parse_dev	= team_header_parse_dev,
 };
 
 static void team_setup_by_port(struct net_device *dev,

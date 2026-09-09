@@ -61,6 +61,12 @@ enum wb_reason {
 	WB_REASON_MAX,
 };
 
+struct wb_switch_state {
+	struct work_struct work;
+	struct llist_head contexts;
+	struct bdi_writeback *wb;
+};
+
 struct wb_completion {
 	atomic_t		cnt;
 	wait_queue_head_t	*waitq;
@@ -153,10 +159,6 @@ struct bdi_writeback {
 	struct list_head blkcg_node;	/* anchored at blkcg->cgwb_list */
 	struct list_head b_attached;	/* attached inodes, protected by list_lock */
 	struct list_head offline_node;	/* anchored at offline_cgwbs */
-	struct work_struct switch_work;	/* work used to perform inode switching
-					 * to this wb */
-	struct llist_head switch_wbs_ctxs;	/* queued contexts for
-						 * writeback switching */
 
 	union {
 		struct work_struct release_work;
@@ -164,7 +166,11 @@ struct bdi_writeback {
 	};
 #endif
 
+#ifdef CONFIG_CGROUP_WRITEBACK
+	ANDROID_KABI_USE(1, struct wb_switch_state *switch_state);
+#else
 	ANDROID_KABI_RESERVE(1);
+#endif
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_OEM_DATA_ARRAY(1, 2);
 };

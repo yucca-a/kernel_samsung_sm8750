@@ -10732,20 +10732,6 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
 	const struct net_device_ops *ops = dev->netdev_ops;
 	const struct net_device_core_stats __percpu *p;
 
-	/*
-	 * IPv{4,6} and udp tunnels share common stat helpers and use
-	 * different stat type (NETDEV_PCPU_STAT_TSTATS vs
-	 * NETDEV_PCPU_STAT_DSTATS). Ensure the accounting is consistent.
-	 */
-	BUILD_BUG_ON(offsetof(struct pcpu_sw_netstats, rx_bytes) !=
-		     offsetof(struct pcpu_dstats, rx_bytes));
-	BUILD_BUG_ON(offsetof(struct pcpu_sw_netstats, rx_packets) !=
-		     offsetof(struct pcpu_dstats, rx_packets));
-	BUILD_BUG_ON(offsetof(struct pcpu_sw_netstats, tx_bytes) !=
-		     offsetof(struct pcpu_dstats, tx_bytes));
-	BUILD_BUG_ON(offsetof(struct pcpu_sw_netstats, tx_packets) !=
-		     offsetof(struct pcpu_dstats, tx_packets));
-
 	if (ops->ndo_get_stats64) {
 		memset(storage, 0, sizeof(*storage));
 		ops->ndo_get_stats64(dev, storage);
@@ -10817,8 +10803,37 @@ EXPORT_SYMBOL_GPL(dev_fetch_sw_netstats);
  */
 void dev_get_tstats64(struct net_device *dev, struct rtnl_link_stats64 *s)
 {
+	int cpu;
+
 	netdev_stats_to_stats64(s, &dev->stats);
-	dev_fetch_sw_netstats(s, dev->tstats);
+	if (dev->pcpu_stat_type != NETDEV_PCPU_STAT_DSTATS) {
+		dev_fetch_sw_netstats(s, dev->tstats);
+		return;
+	}
+
+	/* The legacy DSTATS layout cannot be read through a TSTATS pointer. */
+	for_each_possible_cpu(cpu) {
+		const struct pcpu_dstats *stats = per_cpu_ptr(dev->dstats, cpu);
+		u64 rx_packets, rx_bytes, rx_drops, tx_packets, tx_bytes, tx_drops;
+		unsigned int start;
+
+		do {
+			start = u64_stats_fetch_begin(&stats->syncp);
+			rx_packets = u64_stats_read(&stats->rx_packets);
+			rx_bytes = u64_stats_read(&stats->rx_bytes);
+			rx_drops = u64_stats_read(&stats->rx_drops);
+			tx_packets = u64_stats_read(&stats->tx_packets);
+			tx_bytes = u64_stats_read(&stats->tx_bytes);
+			tx_drops = u64_stats_read(&stats->tx_drops);
+		} while (u64_stats_fetch_retry(&stats->syncp, start));
+
+		s->rx_packets += rx_packets;
+		s->rx_bytes += rx_bytes;
+		s->rx_dropped += rx_drops;
+		s->tx_packets += tx_packets;
+		s->tx_bytes += tx_bytes;
+		s->tx_dropped += tx_drops;
+	}
 }
 EXPORT_SYMBOL_GPL(dev_get_tstats64);
 

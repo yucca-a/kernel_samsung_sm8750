@@ -380,6 +380,20 @@ void __iomem *__ioremap_prot(phys_addr_t phys_addr, size_t size,
 }
 EXPORT_SYMBOL(__ioremap_prot);
 
+#undef ioremap_prot
+void __iomem *ioremap_prot(phys_addr_t phys, size_t size, unsigned long prot)
+{
+	/*
+	 * Old vendor modules pass kernel pgprot values through this symbol.
+	 * Also sanitize userspace protections as required by the LTS fix.
+	 */
+	if (prot & PTE_USER)
+		prot = pgprot_val(__pgprot_modify(PAGE_KERNEL, PTE_ATTRINDX_MASK,
+						 prot & PTE_ATTRINDX_MASK));
+	return __ioremap_prot(phys, size, __pgprot(prot));
+}
+EXPORT_SYMBOL(ioremap_prot);
+
 /*
  * Must be called after early_fixmap_init
  */

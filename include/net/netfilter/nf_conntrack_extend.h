@@ -38,6 +38,7 @@ enum nf_ct_ext_id {
 struct nf_ct_ext {
 	u8 offset[NF_CT_EXT_NUM];
 	u8 len;
+	unsigned int gen_id; /* Legacy ABI slot; new entries always use zero. */
 	char data[] __aligned(8);
 };
 
@@ -60,6 +61,8 @@ static inline void *nf_ct_ext_find(const struct nf_conn *ct, u8 id)
 
 	return (void *)ct->ext + ct->ext->offset[id];
 }
+
+void *__nf_ct_ext_find(const struct nf_ct_ext *ext, u8 id);
 
 /* Add this type, returns pointer to data or NULL. */
 void *nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp);

@@ -1138,7 +1138,7 @@ static int byt_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 
 /*
  * Note despite the temptation this MUST NOT be converted into a call to
- * pinctrl_gpio_direction_output() + byt_gpio_set() that does not work this
+ * pinctrl_gpio_direction_output_gc() + byt_gpio_set() that does not work this
  * MUST be done as a single BYT_VAL_REG register write.
  * See the commit message of the commit adding this comment for details.
  */

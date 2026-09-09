@@ -1687,10 +1687,10 @@ static int genl_bind(struct net *net, int group)
 			continue;
 
 		grp = &family->mcgrps[i];
-		if ((grp->flags & GENL_MCAST_CAP_NET_ADMIN) &&
+		if ((grp->flags & (GENL_MCAST_CAP_NET_ADMIN | GENL_UNS_ADMIN_PERM)) &&
 		    !ns_capable(net->user_ns, CAP_NET_ADMIN))
 			ret = -EPERM;
-		if ((grp->flags & GENL_MCAST_CAP_SYS_ADMIN) &&
+		if (((grp->flags & GENL_MCAST_CAP_SYS_ADMIN) || grp->cap_sys_admin) &&
 		    !ns_capable(net->user_ns, CAP_SYS_ADMIN))
 			ret = -EPERM;
 

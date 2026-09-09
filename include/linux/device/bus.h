@@ -110,10 +110,9 @@ struct bus_type {
 
 	const struct iommu_ops *iommu_ops;
 
-	bool driver_override;
 	bool need_parent_lock;
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, bool driver_override);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);

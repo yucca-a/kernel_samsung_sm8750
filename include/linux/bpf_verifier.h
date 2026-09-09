@@ -320,6 +320,12 @@ struct bpf_func_state {
 	struct bpf_stack_state *stack;
 };
 
+/* Frozen vendor view of the instruction index history. */
+struct bpf_idx_pair {
+	u32 prev_idx;
+	u32 idx;
+};
+
 #define MAX_CALL_FRAMES 8
 
 /* instruction history flags, used in bpf_jmp_history_entry.flags field */
@@ -434,7 +440,7 @@ struct bpf_verifier_state {
 	 * For most states jmp_history_cnt is [0-3].
 	 * For loops can go up to ~40.
 	 */
-	struct bpf_jmp_history_entry *jmp_history;
+	struct bpf_idx_pair *jmp_history;
 	u32 jmp_history_cnt;
 	u32 dfs_depth;
 	u32 callback_unroll_depth;
@@ -669,7 +675,6 @@ struct bpf_verifier_env {
 		int cur_stack;
 	} cfg;
 	struct backtrack_state bt;
-	struct bpf_jmp_history_entry *cur_hist_ent;
 	u32 pass_cnt; /* number of times do_check() was called */
 	u32 subprog_cnt;
 	/* number of instructions analyzed by the verifier */
@@ -703,7 +708,7 @@ struct bpf_verifier_env {
 	 */
 	char tmp_str_buf[TMP_STR_BUF_LEN];
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, struct bpf_jmp_history_entry *cur_hist_ent);
 	ANDROID_KABI_RESERVE(2);
 };
 
