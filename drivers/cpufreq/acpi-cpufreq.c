@@ -961,13 +961,19 @@ static struct freq_attr *acpi_cpufreq_attr[] = {
 	NULL,
 };
 
+static int acpi_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	acpi_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver acpi_cpufreq_driver = {
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= acpi_cpufreq_target,
 	.fast_switch	= acpi_cpufreq_fast_switch,
 	.bios_limit	= acpi_processor_get_bios_limit,
 	.init		= acpi_cpufreq_cpu_init,
-	.exit		= acpi_cpufreq_cpu_exit,
+	.exit		= acpi_cpufreq_cpu_exit_vendor_abi,
 	.resume		= acpi_cpufreq_resume,
 	.name		= "acpi-cpufreq",
 	.attr		= acpi_cpufreq_attr,

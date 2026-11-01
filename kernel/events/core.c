@@ -2307,7 +2307,6 @@ event_sched_out(struct perf_event *event, struct perf_event_context *ctx)
 		    !task_work_add(current, &event->pending_task, TWA_RESUME)) {
 			WARN_ON_ONCE(!atomic_long_inc_not_zero(&event->refcount));
 			event->pending_work = 1;
-			WARN_ON_ONCE(!atomic_long_inc_not_zero(&event->refcount));
 		} else {
 			local_dec(&event->ctx->nr_pending);
 		}
@@ -3521,6 +3520,18 @@ static void perf_event_swap_task_ctx_data(struct perf_event_context *prev_ctx,
 	}
 }
 
+/* x86 consumes the explicit task for LBR; ARM64 keeps its established ABI. */
+static void perf_call_sched_task(struct pmu *pmu,
+				struct perf_event_pmu_context *pmu_ctx,
+				struct task_struct *task, bool sched_in)
+{
+#ifdef CONFIG_X86
+	pmu->sched_task(pmu_ctx, task, sched_in);
+#else
+	pmu->sched_task(pmu_ctx, sched_in);
+#endif
+}
+
 static void perf_ctx_sched_task_cb(struct perf_event_context *ctx,
 				   struct task_struct *task, bool sched_in)
 {
@@ -3534,7 +3545,7 @@ static void perf_ctx_sched_task_cb(struct perf_event_context *ctx,
 			continue;
 
 		if (cpc->sched_cb_usage && pmu_ctx->pmu->sched_task)
-			pmu_ctx->pmu->sched_task(pmu_ctx, task, sched_in);
+			perf_call_sched_task(pmu_ctx->pmu, pmu_ctx, task, sched_in);
 	}
 }
 
@@ -3679,7 +3690,7 @@ static void __perf_pmu_sched_task(struct perf_cpu_pmu_context *cpc,
 	perf_ctx_lock(cpuctx, cpuctx->task_ctx);
 	perf_pmu_disable(pmu);
 
-	pmu->sched_task(&cpc->epc, task, sched_in);
+	perf_call_sched_task(pmu, &cpc->epc, task, sched_in);
 
 	perf_pmu_enable(pmu);
 	perf_ctx_unlock(cpuctx, cpuctx->task_ctx);
@@ -6899,7 +6910,6 @@ static void perf_pending_task(struct callback_head *head)
 	struct perf_event *event = container_of(head, struct perf_event, pending_task);
 	int rctx;
 
-	preempt_disable_notrace();
 	/*
 	 * If we 'fail' here, that's OK, it means recursion is already disabled
 	 * and we won't recurse 'further'.

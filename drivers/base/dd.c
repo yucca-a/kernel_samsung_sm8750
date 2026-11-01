@@ -383,6 +383,8 @@ int __device_set_driver_override(struct device *dev, const char *s, size_t len)
 {
 	const char *new, *old;
 	char *cp;
+	const char **legacy = dev->bus && dev->bus->legacy_driver_override ?
+		dev->bus->legacy_driver_override(dev) : NULL;
 
 	if (!s)
 		return -EINVAL;
@@ -404,11 +406,17 @@ int __device_set_driver_override(struct device *dev, const char *s, size_t len)
 
 	if (!len) {
 		/* Empty string passed - clear override */
+		if (legacy)
+			device_lock(dev);
 		spin_lock(&dev->driver_override.lock);
 		old = dev->driver_override.name;
 		dev->driver_override.name = NULL;
+		if (legacy)
+			*legacy = NULL;
 		spin_unlock(&dev->driver_override.lock);
 		kfree(old);
+		if (legacy)
+			device_unlock(dev);
 
 		return 0;
 	}
@@ -421,19 +429,27 @@ int __device_set_driver_override(struct device *dev, const char *s, size_t len)
 	if (!new)
 		return -ENOMEM;
 
+	if (legacy)
+		device_lock(dev);
 	spin_lock(&dev->driver_override.lock);
 	old = dev->driver_override.name;
 	if (cp != s) {
 		dev->driver_override.name = new;
+		if (legacy)
+			*legacy = new;
 		spin_unlock(&dev->driver_override.lock);
 	} else {
 		/* "\n" passed - clear override */
 		dev->driver_override.name = NULL;
+		if (legacy)
+			*legacy = NULL;
 		spin_unlock(&dev->driver_override.lock);
 
 		kfree(new);
 	}
 	kfree(old);
+	if (legacy)
+		device_unlock(dev);
 
 	return 0;
 }

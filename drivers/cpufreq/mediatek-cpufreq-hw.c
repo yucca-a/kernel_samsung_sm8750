@@ -281,6 +281,12 @@ static void mtk_cpufreq_register_em(struct cpufreq_policy *policy)
 				    &em_cb, policy->cpus, true);
 }
 
+static int mtk_cpufreq_hw_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	mtk_cpufreq_hw_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cpufreq_mtk_hw_driver = {
 	.flags		= CPUFREQ_NEED_INITIAL_FREQ_CHECK |
 			  CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -289,7 +295,7 @@ static struct cpufreq_driver cpufreq_mtk_hw_driver = {
 	.target_index	= mtk_cpufreq_hw_target_index,
 	.get		= mtk_cpufreq_hw_get,
 	.init		= mtk_cpufreq_hw_cpu_init,
-	.exit		= mtk_cpufreq_hw_cpu_exit,
+	.exit		= mtk_cpufreq_hw_cpu_exit_vendor_abi,
 	.register_em	= mtk_cpufreq_register_em,
 	.fast_switch	= mtk_cpufreq_hw_fast_switch,
 	.name		= "mtk-cpufreq-hw",

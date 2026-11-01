@@ -97,10 +97,6 @@ struct inet_connection_sock {
 	unsigned long		  icsk_timeout;
 	struct timer_list	  icsk_retransmit_timer;
 	struct timer_list	  icsk_delack_timer;
-	union {
-		struct timer_list icsk_keepalive_timer;
-		struct timer_list mptcp_tout_timer;
-	};
 	__u32			  icsk_rto;
 	__u32                     icsk_rto_min;
 	__u32                     icsk_delack_max;

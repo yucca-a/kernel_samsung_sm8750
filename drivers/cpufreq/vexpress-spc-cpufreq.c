@@ -461,6 +461,12 @@ static void ve_spc_cpufreq_exit(struct cpufreq_policy *policy)
 	put_cluster_clk_and_freq_table(cpu_dev, policy->related_cpus);
 }
 
+static int ve_spc_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	ve_spc_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver ve_spc_cpufreq_driver = {
 	.name			= "vexpress-spc",
 	.flags			= CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -469,7 +475,7 @@ static struct cpufreq_driver ve_spc_cpufreq_driver = {
 	.target_index		= ve_spc_cpufreq_set_target,
 	.get			= ve_spc_cpufreq_get_rate,
 	.init			= ve_spc_cpufreq_init,
-	.exit			= ve_spc_cpufreq_exit,
+	.exit			= ve_spc_cpufreq_exit_vendor_abi,
 	.register_em		= cpufreq_register_em_with_opp,
 	.attr			= cpufreq_generic_attr,
 };

@@ -9619,7 +9619,7 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 	 * we are functional while we are here, skip host resume in error
 	 * handling context.
 	 */
-	WRITE_ONCE(hba->host->eh_noresume, 1);
+	scsi_host_set_eh_noresume(hba->host, 1);
 
 	/*
 	 * Current function would be generally called from the power management
@@ -9649,7 +9649,7 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 	}
 
 	scsi_device_put(sdp);
-	WRITE_ONCE(hba->host->eh_noresume, 0);
+	scsi_host_set_eh_noresume(hba->host, 0);
 	return ret;
 }
 

@@ -95,8 +95,6 @@ struct bus_type {
 	void (*sync_state)(struct device *dev);
 	void (*remove)(struct device *dev);
 	void (*shutdown)(struct device *dev);
-	const struct cpumask *(*irq_get_affinity)(struct device *dev,
-			unsigned int irq_vec);
 
 	int (*online)(struct device *dev);
 	int (*offline)(struct device *dev);
@@ -116,8 +114,9 @@ struct bus_type {
 	bool need_parent_lock;
 
 	ANDROID_KABI_USE(1, bool driver_override);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_USE(2, const struct cpumask *(*irq_get_affinity)(
+		struct device *dev, unsigned int irq_vec));
+	ANDROID_KABI_USE(3, const char **(*legacy_driver_override)(struct device *dev));
 	ANDROID_KABI_RESERVE(4);
 };
 

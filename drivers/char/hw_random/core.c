@@ -79,9 +79,38 @@ static void add_early_randomness(struct hwrng *rng)
 	}
 }
 
+/* Drivers allocate struct hwrng, so keep deferred work in core-owned state. */
+struct hwrng_cleanup_state {
+	struct list_head node;
+	struct hwrng *rng;
+	struct work_struct work;
+};
+static LIST_HEAD(hwrng_cleanup_states);
+static DEFINE_SPINLOCK(hwrng_cleanup_lock);
+
+static void hwrng_free_cleanup_state(struct hwrng *rng)
+{
+	struct hwrng_cleanup_state *state, *found = NULL;
+	unsigned long flags;
+
+	spin_lock_irqsave(&hwrng_cleanup_lock, flags);
+	list_for_each_entry(state, &hwrng_cleanup_states, node) {
+		if (state->rng == rng) {
+			list_del(&state->node);
+			found = state;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&hwrng_cleanup_lock, flags);
+	if (found) {
+		flush_work(&found->work);
+		kfree(found);
+	}
+}
+
 static void cleanup_rng_work(struct work_struct *work)
 {
-	struct hwrng *rng = container_of(work, struct hwrng, cleanup_work);
+	struct hwrng *rng = container_of(work, struct hwrng_cleanup_state, work)->rng;
 
 	/*
 	 * Hold rng_mutex here so we serialize in case they set_current_rng
@@ -106,7 +135,17 @@ static inline void cleanup_rng(struct kref *kref)
 {
 	struct hwrng *rng = container_of(kref, struct hwrng, ref);
 
-	schedule_work(&rng->cleanup_work);
+	struct hwrng_cleanup_state *state;
+	unsigned long flags;
+
+	spin_lock_irqsave(&hwrng_cleanup_lock, flags);
+	list_for_each_entry(state, &hwrng_cleanup_states, node) {
+		if (state->rng == rng) {
+			schedule_work(&state->work);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&hwrng_cleanup_lock, flags);
 }
 
 static int set_current_rng(struct hwrng *rng)
@@ -590,6 +629,8 @@ int hwrng_register(struct hwrng *rng)
 	int err = -EINVAL;
 	struct hwrng *cur_rng, *tmp;
 	bool is_new_current = false;
+	struct hwrng_cleanup_state *state;
+	unsigned long flags;
 
 	if (!rng->name || (!rng->data_read && !rng->read))
 		goto out;
@@ -602,9 +643,18 @@ int hwrng_register(struct hwrng *rng)
 		if (strcmp(tmp->name, rng->name) == 0)
 			goto out_unlock;
 	}
+	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	if (!state) {
+		err = -ENOMEM;
+		goto out_unlock;
+	}
+	state->rng = rng;
+	INIT_WORK(&state->work, cleanup_rng_work);
+	spin_lock_irqsave(&hwrng_cleanup_lock, flags);
+	list_add_tail(&state->node, &hwrng_cleanup_states);
+	spin_unlock_irqrestore(&hwrng_cleanup_lock, flags);
 	list_add_tail(&rng->list, &rng_list);
 
-	INIT_WORK(&rng->cleanup_work, cleanup_rng_work);
 	init_completion(&rng->cleanup_done);
 	complete(&rng->cleanup_done);
 	init_completion(&rng->dying);
@@ -646,6 +696,9 @@ int hwrng_register(struct hwrng *rng)
 	return 0;
 out_list_del:
 	list_del_init(&rng->list);
+	mutex_unlock(&rng_mutex);
+	hwrng_free_cleanup_state(rng);
+	return err;
 out_unlock:
 	mutex_unlock(&rng_mutex);
 out:
@@ -683,6 +736,7 @@ void hwrng_unregister(struct hwrng *rng)
 	}
 
 	wait_for_completion(&rng->cleanup_done);
+	hwrng_free_cleanup_state(rng);
 }
 EXPORT_SYMBOL_GPL(hwrng_unregister);
 

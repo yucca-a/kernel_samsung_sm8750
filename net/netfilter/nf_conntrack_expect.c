@@ -311,7 +311,7 @@ struct nf_conntrack_expect *nf_ct_expect_alloc(struct nf_conn *me)
 		return NULL;
 
 	nf_ct_expect_creator(new) = NULL;
-	new->timeout_jiffies = nfct_time_stamp;
+	nf_ct_expect_timeout(new) = nfct_time_stamp;
 	new->master = me;
 	refcount_set(&new->use, 1);
 	return new;
@@ -414,7 +414,7 @@ static void nf_ct_expect_insert(struct nf_conntrack_expect *exp)
 	helper = rcu_dereference_protected(master_help->helper,
 					   lockdep_is_held(&nf_conntrack_expect_lock));
 	if (helper)
-		exp->timeout_jiffies += helper->expect_policy[exp->class].timeout * HZ;
+		nf_ct_expect_timeout(exp) += helper->expect_policy[exp->class].timeout * HZ;
 
 	hlist_add_head_rcu(&exp->lnode, &master_help->expectations);
 	master_help->expecting[exp->class]++;
@@ -657,7 +657,7 @@ static int exp_seq_show(struct seq_file *s, void *v)
 	if (nf_ct_exp_is_expired(expect))
 		return 0;
 
-	timeout = (__s32)(READ_ONCE(expect->timeout_jiffies) - nfct_time_stamp) / HZ;
+	timeout = (__s32)(READ_ONCE(nf_ct_expect_timeout(expect)) - nfct_time_stamp) / HZ;
 	seq_printf(s, "%d ", timeout > 0 ? timeout : 0);
 	seq_printf(s, "l3proto = %u proto=%u ",
 		   expect->tuple.src.l3num,

@@ -763,7 +763,7 @@ out:
 	return ret;
 }
 
-bool sk_mc_loop(const struct sock *sk)
+bool sk_mc_loop_const(const struct sock *sk)
 {
 	if (dev_recursion_level())
 		return false;
@@ -779,6 +779,12 @@ bool sk_mc_loop(const struct sock *sk)
 #endif
 	}
 	return true;
+}
+EXPORT_SYMBOL(sk_mc_loop_const);
+
+bool sk_mc_loop(struct sock *sk)
+{
+	return sk_mc_loop_const(sk);
 }
 EXPORT_SYMBOL(sk_mc_loop);
 

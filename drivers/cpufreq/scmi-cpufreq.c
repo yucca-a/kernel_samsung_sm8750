@@ -307,6 +307,12 @@ static void scmi_cpufreq_register_em(struct cpufreq_policy *policy)
 				    em_power_scale);
 }
 
+static int scmi_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	scmi_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver scmi_cpufreq_driver = {
 	.name	= "scmi",
 	.flags	= CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -318,7 +324,7 @@ static struct cpufreq_driver scmi_cpufreq_driver = {
 	.fast_switch	= scmi_cpufreq_fast_switch,
 	.get	= scmi_cpufreq_get_rate,
 	.init	= scmi_cpufreq_init,
-	.exit	= scmi_cpufreq_exit,
+	.exit	= scmi_cpufreq_exit_vendor_abi,
 	.register_em	= scmi_cpufreq_register_em,
 };
 

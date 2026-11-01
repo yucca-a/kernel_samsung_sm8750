@@ -238,11 +238,17 @@ static int pas_cpufreq_target(struct cpufreq_policy *policy,
 	return 0;
 }
 
+static int pas_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	pas_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver pas_cpufreq_driver = {
 	.name		= "pas-cpufreq",
 	.flags		= CPUFREQ_CONST_LOOPS,
 	.init		= pas_cpufreq_cpu_init,
-	.exit		= pas_cpufreq_cpu_exit,
+	.exit		= pas_cpufreq_cpu_exit_vendor_abi,
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= pas_cpufreq_target,
 	.attr		= cpufreq_generic_attr,

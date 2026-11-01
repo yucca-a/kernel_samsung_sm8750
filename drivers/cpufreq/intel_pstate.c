@@ -2762,6 +2762,12 @@ static int intel_pstate_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static int intel_pstate_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	intel_pstate_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver intel_pstate = {
 	.flags		= CPUFREQ_CONST_LOOPS,
 	.verify		= intel_pstate_verify_policy,
@@ -2769,7 +2775,7 @@ static struct cpufreq_driver intel_pstate = {
 	.suspend	= intel_pstate_suspend,
 	.resume		= intel_pstate_resume,
 	.init		= intel_pstate_cpu_init,
-	.exit		= intel_pstate_cpu_exit,
+	.exit		= intel_pstate_cpu_exit_vendor_abi,
 	.offline	= intel_pstate_cpu_offline,
 	.online		= intel_pstate_cpu_online,
 	.update_limits	= intel_pstate_update_limits,
@@ -3076,13 +3082,19 @@ static int intel_cpufreq_suspend(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static int intel_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	intel_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver intel_cpufreq = {
 	.flags		= CPUFREQ_CONST_LOOPS,
 	.verify		= intel_cpufreq_verify_policy,
 	.target		= intel_cpufreq_target,
 	.fast_switch	= intel_cpufreq_fast_switch,
 	.init		= intel_cpufreq_cpu_init,
-	.exit		= intel_cpufreq_cpu_exit,
+	.exit		= intel_cpufreq_cpu_exit_vendor_abi,
 	.offline	= intel_cpufreq_cpu_offline,
 	.online		= intel_pstate_cpu_online,
 	.suspend	= intel_cpufreq_suspend,

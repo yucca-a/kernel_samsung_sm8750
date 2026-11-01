@@ -321,12 +321,18 @@ acpi_cpufreq_cpu_exit (
 }
 
 
+static int acpi_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	acpi_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver acpi_cpufreq_driver = {
 	.verify 	= cpufreq_generic_frequency_table_verify,
 	.target_index	= acpi_cpufreq_target,
 	.get 		= acpi_cpufreq_get,
 	.init		= acpi_cpufreq_cpu_init,
-	.exit		= acpi_cpufreq_cpu_exit,
+	.exit		= acpi_cpufreq_cpu_exit_vendor_abi,
 	.name		= "acpi-cpufreq",
 	.attr		= cpufreq_generic_attr,
 };

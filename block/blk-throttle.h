@@ -67,6 +67,7 @@ enum {
 struct throtl_grp {
 	/* must be the first member */
 	struct blkg_policy_data pd;
+	struct rcu_head rcu_head; /* policy-owned deferred free state */
 
 	/* active throtl group service_queue member */
 	struct rb_node rb_node;

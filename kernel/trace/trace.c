@@ -56,6 +56,13 @@
 #include "trace.h"
 #include "trace_output.h"
 
+/* Count follows the lifetime of the allocated option entries, not tracer. */
+struct trace_option_storage {
+	int count;
+	struct trace_option_dentry entries[];
+};
+#define trace_option_storage(p) container_of((void *)(p), struct trace_option_storage, entries)
+
 /*
  * On boot up, the ring buffer is set to the minimum size, so that
  * we do not waste memory on systems that are not using tracing.
@@ -9033,7 +9040,7 @@ static bool tr_option_match(struct trace_array *tr, void *topt)
 		struct trace_options *tr_topts = &tr->topts[i];
 
 		if (topt >= (void *)&tr_topts->topts[0] &&
-		    topt < (void *)&tr_topts->topts[tr_topts->nr_topts])
+		    topt < (void *)&tr_topts->topts[trace_option_storage(tr_topts->topts)->count])
 			return true;
 	}
 	return false;
@@ -9347,21 +9354,27 @@ create_trace_option_files(struct trace_array *tr, struct tracer *tracer)
 	for (cnt = 0; opts[cnt].name; cnt++)
 		;
 
-	topts = kcalloc(cnt + 1, sizeof(*topts), GFP_KERNEL);
+	{
+		struct trace_option_storage *storage;
+
+		storage = kzalloc(struct_size(storage, entries, cnt + 1), GFP_KERNEL);
+		topts = storage ? storage->entries : NULL;
+		if (storage)
+			storage->count = cnt;
+	}
 	if (!topts)
 		return;
 
 	tr_topts = krealloc(tr->topts, sizeof(*tr->topts) * (tr->nr_topts + 1),
 			    GFP_KERNEL);
 	if (!tr_topts) {
-		kfree(topts);
+		kfree(trace_option_storage(topts));
 		return;
 	}
 
 	tr->topts = tr_topts;
 	tr->topts[tr->nr_topts].tracer = tracer;
 	tr->topts[tr->nr_topts].topts = topts;
-	tr->topts[tr->nr_topts].nr_topts = cnt;
 	tr->nr_topts++;
 
 	for (cnt = 0; opts[cnt].name; cnt++) {
@@ -9657,6 +9670,8 @@ static int trace_array_create_dir(struct trace_array *tr)
 	return ret;
 }
 
+
+
 static struct trace_array *
 trace_array_create_systems(const char *name, const char *systems)
 {
@@ -9854,7 +9869,7 @@ static int __remove_instance(struct trace_array *tr)
 	clear_tracing_err_log(tr);
 
 	for (i = 0; i < tr->nr_topts; i++) {
-		kfree(tr->topts[i].topts);
+		kfree(trace_option_storage(tr->topts[i].topts));
 	}
 	kfree(tr->topts);
 

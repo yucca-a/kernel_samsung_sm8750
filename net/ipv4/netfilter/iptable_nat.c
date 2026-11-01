@@ -68,7 +68,7 @@ static int ipt_nat_register_lookups(struct net *net)
 	if (WARN_ON_ONCE(!table))
 		return -ENOENT;
 
-	ops = kmemdup(nf_nat_ipv4_ops, sizeof(nf_nat_ipv4_ops), GFP_KERNEL);
+	ops = nf_nat_ops_dup(nf_nat_ipv4_ops, sizeof(nf_nat_ipv4_ops), GFP_KERNEL);
 	if (!ops)
 		return -ENOMEM;
 
@@ -79,7 +79,7 @@ static int ipt_nat_register_lookups(struct net *net)
 			while (i)
 				nf_nat_ipv4_unregister_fn(net, &ops[--i]);
 
-			kfree_rcu(ops, rcu);
+			nf_nat_ops_free_rcu(ops);
 			return ret;
 		}
 	}
@@ -100,7 +100,7 @@ static void ipt_nat_unregister_lookups(struct net *net)
 	for (i = 0; i < ARRAY_SIZE(nf_nat_ipv4_ops); i++)
 		nf_nat_ipv4_unregister_fn(net, &ops[i]);
 
-	kfree_rcu(ops, rcu);
+	nf_nat_ops_free_rcu(ops);
 }
 
 static int iptable_nat_table_init(struct net *net)

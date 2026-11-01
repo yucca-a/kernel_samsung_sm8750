@@ -171,10 +171,16 @@ static int android_v_cpufreq_verify(struct cpufreq_policy_data *data)
 	return ret;
 }
 
+static int android_v_vcpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	android_v_vcpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cpufreq_android_v_virt_driver = {
 	.name		= "andr-v-vcpufreq",
 	.init		= android_v_vcpufreq_cpu_init,
-	.exit		= android_v_vcpufreq_cpu_exit,
+	.exit		= android_v_vcpufreq_cpu_exit_vendor_abi,
 	.online         = android_v_vcpufreq_online,
 	.offline        = android_v_vcpufreq_offline,
 	.verify		= android_v_cpufreq_verify,

@@ -171,9 +171,8 @@ struct irq_domain {
 #ifdef CONFIG_GENERIC_MSI_IRQ
 	const struct msi_parent_ops	*msi_parent_ops;
 #endif
-	void				(*exit)(struct irq_domain *d);
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, void (*exit)(struct irq_domain *d));
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);

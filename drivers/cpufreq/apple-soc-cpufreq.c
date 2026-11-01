@@ -313,6 +313,12 @@ static void apple_soc_cpufreq_exit(struct cpufreq_policy *policy)
 	kfree(priv);
 }
 
+static int apple_soc_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	apple_soc_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver apple_soc_cpufreq_driver = {
 	.name		= "apple-cpufreq",
 	.flags		= CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -320,7 +326,7 @@ static struct cpufreq_driver apple_soc_cpufreq_driver = {
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.get		= apple_soc_cpufreq_get_rate,
 	.init		= apple_soc_cpufreq_init,
-	.exit		= apple_soc_cpufreq_exit,
+	.exit		= apple_soc_cpufreq_exit_vendor_abi,
 	.target_index	= apple_soc_cpufreq_set_target,
 	.fast_switch	= apple_soc_cpufreq_fast_switch,
 	.register_em	= cpufreq_register_em_with_opp,

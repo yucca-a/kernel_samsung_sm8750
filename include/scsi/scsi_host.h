@@ -636,8 +636,6 @@ struct Scsi_Host {
 	 */
 	unsigned nr_hw_queues;
 	unsigned nr_maps;
-	/* Don't resume host in EH */
-	bool eh_noresume;
 
 	unsigned active_mode:2;
 
@@ -659,6 +657,9 @@ struct Scsi_Host {
 
 	/* Asynchronous scan in progress */
 	unsigned async_scan:1;
+
+	/* Don't resume host in EH */
+	unsigned eh_noresume:1;
 
 
 	/* The controller does not support WRITE SAME */
@@ -735,6 +736,34 @@ struct Scsi_Host {
 	unsigned long hostdata[]  /* Used for storage of host specific stuff */
 		__attribute__ ((aligned (sizeof(unsigned long))));
 };
+
+/* The legacy eh_noresume bit lives in the first flags byte after nr_maps.
+ * Read that byte once, and update only this bit with cmpxchg so the EH path
+ * keeps a consistent PM decision without changing the vendor bit layout.
+ */
+#ifdef __LITTLE_ENDIAN
+#define SCSI_EH_NORESUME_MASK BIT(6)
+#else
+#define SCSI_EH_NORESUME_MASK BIT(1)
+#endif
+static inline bool scsi_host_eh_noresume(const struct Scsi_Host *shost)
+{
+	const u8 *flags = (const u8 *)&shost->nr_maps + sizeof(shost->nr_maps);
+
+	return READ_ONCE(*flags) & SCSI_EH_NORESUME_MASK;
+}
+
+static inline void scsi_host_set_eh_noresume(struct Scsi_Host *shost, bool value)
+{
+	u8 *flags = (u8 *)&shost->nr_maps + sizeof(shost->nr_maps);
+	u8 old, new;
+
+	do {
+		old = READ_ONCE(*flags);
+		new = value ? old | SCSI_EH_NORESUME_MASK : old & ~SCSI_EH_NORESUME_MASK;
+	} while (cmpxchg(flags, old, new) != old);
+}
+
 
 #define		class_to_shost(d)	\
 	container_of(d, struct Scsi_Host, shost_dev)

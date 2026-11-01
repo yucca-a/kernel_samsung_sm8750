@@ -599,6 +599,12 @@ static struct freq_attr *qcom_cpufreq_hw_attr[] = {
 	NULL
 };
 
+static int qcom_cpufreq_hw_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	qcom_cpufreq_hw_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cpufreq_qcom_hw_driver = {
 	.flags		= CPUFREQ_NEED_INITIAL_FREQ_CHECK |
 			  CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -607,7 +613,7 @@ static struct cpufreq_driver cpufreq_qcom_hw_driver = {
 	.target_index	= qcom_cpufreq_hw_target_index,
 	.get		= qcom_cpufreq_hw_get,
 	.init		= qcom_cpufreq_hw_cpu_init,
-	.exit		= qcom_cpufreq_hw_cpu_exit,
+	.exit		= qcom_cpufreq_hw_cpu_exit_vendor_abi,
 	.online		= qcom_cpufreq_hw_cpu_online,
 	.offline	= qcom_cpufreq_hw_cpu_offline,
 	.register_em	= cpufreq_register_em_with_opp,

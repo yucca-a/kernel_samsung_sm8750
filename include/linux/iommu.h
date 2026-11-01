@@ -263,6 +263,9 @@ struct iommu_iotlb_gather {
  * @pgsize_bitmap: bitmap of all possible supported page sizes
  * @owner: Driver module providing these ops
  */
+/* Only valid synchronously inside a remove_dev_pasid callback. */
+struct iommu_domain *iommu_pasid_removal_domain(struct device *dev);
+
 struct iommu_ops {
 	bool (*capable)(struct device *dev, enum iommu_cap);
 	void *(*hw_info)(struct device *dev, u32 *length, u32 *type);
@@ -291,8 +294,7 @@ struct iommu_ops {
 			     struct iommu_page_response *msg);
 
 	int (*def_domain_type)(struct device *dev);
-	void (*remove_dev_pasid)(struct device *dev, ioasid_t pasid,
-				 struct iommu_domain *domain);
+	void (*remove_dev_pasid)(struct device *dev, ioasid_t pasid);
 
 	const struct iommu_domain_ops *default_domain_ops;
 	unsigned long pgsize_bitmap;

@@ -369,9 +369,6 @@ struct io_ring_ctx {
 	bool				iowq_limits_set;
 
 	struct callback_head		poll_wq_task_work;
-	/* deferred ->poll_wq wake up for local task_work */
-	struct rcu_head			poll_wq_rcu;
-	atomic_t			poll_wq_rcu_pending;
 	struct list_head		defer_list;
 	unsigned			sq_thread_idle;
 	/* protected by ->completion_lock */
@@ -386,6 +383,15 @@ struct io_ring_ctx {
 	struct page			**ring_pages;
 	struct page			**sqe_pages;
 };
+
+struct io_ring_ctx_storage {
+	struct io_ring_ctx ctx;
+	struct rcu_head poll_wq_rcu;
+	atomic_t poll_wq_rcu_pending;
+};
+#define io_ring_ctx_ext(ctxp) \
+	container_of(ctxp, struct io_ring_ctx_storage, ctx)
+
 
 struct io_tw_state {
 	/* ->uring_lock is taken, callbacks can use io_tw_lock to lock it */
@@ -586,9 +592,12 @@ struct io_kiocb {
 		__poll_t apoll_events;
 	};
 	atomic_t			refs;
-	bool				cancel_seq_set;
+	atomic_t			poll_refs;
 	struct io_task_work		io_task_work;
 	unsigned			nr_tw;
+#ifndef __GENKSYMS__
+	bool cancel_seq_set; /* alignment padding before task */
+#endif
 	/* for polled requests, i.e. IORING_OP_POLL_ADD and async armed poll */
 	struct hlist_node		hash_node;
 	/* internal polling, see IORING_FEAT_FAST_POLL */
@@ -596,7 +605,6 @@ struct io_kiocb {
 	/* opcode allocated if it needs to store data for async defer */
 	void				*async_data;
 	/* linked requests, IFF REQ_F_HARDLINK or REQ_F_LINK are set */
-	atomic_t			poll_refs;
 	struct io_kiocb			*link;
 	/* custom credentials, valid IFF REQ_F_CREDS is set */
 	const struct cred		*creds;

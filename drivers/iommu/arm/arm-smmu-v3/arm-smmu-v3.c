@@ -2596,9 +2596,9 @@ static int arm_smmu_def_domain_type(struct device *dev)
 	return 0;
 }
 
-static void arm_smmu_remove_dev_pasid(struct device *dev, ioasid_t pasid,
-				      struct iommu_domain *domain)
+static void arm_smmu_remove_dev_pasid(struct device *dev, ioasid_t pasid)
 {
+	struct iommu_domain *domain = iommu_pasid_removal_domain(dev);
 	arm_smmu_sva_remove_dev_pasid(domain, dev, pasid);
 }
 

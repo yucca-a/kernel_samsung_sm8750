@@ -366,6 +366,12 @@ static int nforce2_cpu_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static int nforce2_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	nforce2_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver nforce2_driver = {
 	.name = "nforce2",
 	.flags = CPUFREQ_NO_AUTO_DYNAMIC_SWITCHING,
@@ -373,7 +379,7 @@ static struct cpufreq_driver nforce2_driver = {
 	.target = nforce2_target,
 	.get = nforce2_get,
 	.init = nforce2_cpu_init,
-	.exit = nforce2_cpu_exit,
+	.exit = nforce2_cpu_exit_vendor_abi,
 };
 
 #ifdef MODULE

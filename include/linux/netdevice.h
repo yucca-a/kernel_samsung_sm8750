@@ -1613,16 +1613,9 @@ struct net_device_ops {
 	int			(*ndo_mdb_del)(struct net_device *dev,
 					       struct nlattr *tb[],
 					       struct netlink_ext_ack *extack);
-	int			(*ndo_mdb_del_bulk)(struct net_device *dev,
-						    struct nlattr *tb[],
-						    struct netlink_ext_ack *extack);
 	int			(*ndo_mdb_dump)(struct net_device *dev,
 						struct sk_buff *skb,
 						struct netlink_callback *cb);
-	int			(*ndo_mdb_get)(struct net_device *dev,
-					       struct nlattr *tb[], u32 portid,
-					       u32 seq,
-					       struct netlink_ext_ack *extack);
 	int			(*ndo_bridge_setlink)(struct net_device *dev,
 						      struct nlmsghdr *nlh,
 						      u16 flags,
@@ -1678,8 +1671,13 @@ struct net_device_ops {
 	int			(*ndo_hwtstamp_set)(struct net_device *dev,
 						    struct kernel_hwtstamp_config *kernel_config,
 						    struct netlink_ext_ack *extack);
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_USE(1, int			(*ndo_mdb_del_bulk)(struct net_device *dev,
+						    struct nlattr *tb[],
+						    struct netlink_ext_ack *extack));
+	ANDROID_KABI_USE(2, int			(*ndo_mdb_get)(struct net_device *dev,
+					       struct nlattr *tb[], u32 portid,
+					       u32 seq,
+					       struct netlink_ext_ack *extack));
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
 	ANDROID_KABI_RESERVE(5);
@@ -1822,6 +1820,7 @@ enum netdev_stat_type {
 	NETDEV_PCPU_STAT_DSTATS, /* struct pcpu_dstats */
 };
 
+#ifndef __GENKSYMS__
 enum netdev_reg_state {
 	NETREG_UNINITIALIZED = 0,
 	NETREG_REGISTERED,	/* completed register_netdevice */
@@ -1830,6 +1829,7 @@ enum netdev_reg_state {
 	NETREG_RELEASED,	/* called free_netdev */
 	NETREG_DUMMY,		/* dummy device for NAPI poll */
 };
+#endif
 
 /**
  *	struct net_device - The DEVICE structure.
@@ -2347,8 +2347,6 @@ struct net_device {
 	/* These may be needed for future network-power-down code. */
 	struct timer_list	watchdog_timer;
 	int			watchdog_timeo;
-	spinlock_t		watchdog_lock;
-	bool			watchdog_ref_held;
 
 	u32                     proto_down_reason;
 
@@ -2363,7 +2361,17 @@ struct net_device {
 
 	struct list_head	link_watch_list;
 
+#ifdef __GENKSYMS__
+	enum { NETREG_UNINITIALIZED=0,
+	       NETREG_REGISTERED,	/* completed register_netdevice */
+	       NETREG_UNREGISTERING,	/* called unregister_netdevice */
+	       NETREG_UNREGISTERED,	/* completed unregister todo */
+	       NETREG_RELEASED,		/* called free_netdev */
+	       NETREG_DUMMY,		/* dummy device for NAPI poll */
+	} reg_state:8;
+#else
 	u8 reg_state;
+#endif
 
 	bool dismantle;
 
@@ -2464,7 +2472,7 @@ struct net_device {
 
 	struct devlink_port	*devlink_port;
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE2(1, spinlock_t watchdog_lock, bool watchdog_ref_held);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
@@ -3270,7 +3278,7 @@ static inline void unregister_netdevice(struct net_device *dev)
 int netdev_refcnt_read(const struct net_device *dev);
 void free_netdev(struct net_device *dev);
 void netdev_freemem(struct net_device *dev);
-void init_dummy_netdev(struct net_device *dev);
+int init_dummy_netdev(struct net_device *dev);
 
 struct net_device *netdev_get_xmit_slave(struct net_device *dev,
 					 struct sk_buff *skb,
@@ -4109,13 +4117,15 @@ int dev_change_flags(struct net_device *dev, unsigned int flags,
 int dev_set_alias(struct net_device *, const char *, size_t);
 int dev_get_alias(const struct net_device *, char *, size_t);
 int __dev_change_net_namespace(struct net_device *dev, struct net *net,
+			       const char *pat, int new_ifindex);
+int __dev_change_net_namespace_ext(struct net_device *dev, struct net *net,
 			       const char *pat, int new_ifindex,
 			       struct netlink_ext_ack *extack);
 static inline
 int dev_change_net_namespace(struct net_device *dev, struct net *net,
 			     const char *pat)
 {
-	return __dev_change_net_namespace(dev, net, pat, 0, NULL);
+	return __dev_change_net_namespace_ext(dev, net, pat, 0, NULL);
 }
 int __dev_set_mtu(struct net_device *, int);
 int dev_set_mtu(struct net_device *, int);

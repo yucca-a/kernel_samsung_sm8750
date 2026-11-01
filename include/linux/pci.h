@@ -89,8 +89,15 @@ struct pci_slot {
 	struct pci_bus		*bus;		/* Bus this slot is on */
 	struct list_head	list;		/* Node in list of slots */
 	struct hotplug_slot	*hotplug;	/* Hotplug info (move here) */
-	u16			number;		/* Device nr, or PCI_SLOT_ALL_DEVICES */
+#ifdef __GENKSYMS__
+	unsigned char		number;
+#else
+	union {
+		unsigned char number; /* legacy byte, including the old 0xff sentinel */
+		u16 number_full;
+	};
 	unsigned int		per_func_slot:1; /* Allow per function slot */
+#endif
 	struct kobject		kobj;
 };
 
@@ -536,6 +543,7 @@ struct pci_dev {
 	u16		acs_cap;	/* ACS Capability offset */
 	phys_addr_t	rom;		/* Physical address if not from BAR */
 	size_t		romlen;		/* Length if not from BAR */
+	const char	*driver_override; /* legacy alias of dev.driver_override.name */
 	unsigned long	priv_flags;	/* Private flags for the PCI driver */
 
 	/* These methods index pci_reset_fn_methods[] */

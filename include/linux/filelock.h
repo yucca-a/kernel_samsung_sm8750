@@ -105,6 +105,24 @@ struct file_lock_core {
 };
 
 struct file_lock {
+#ifdef __GENKSYMS__
+	struct file_lock *fl_blocker;	/* The lock, that is blocking us */
+	struct list_head fl_list;	/* link into file_lock_context */
+	struct hlist_node fl_link;	/* node in global lists */
+	struct list_head fl_blocked_requests;	/* list of requests with
+						 * ->fl_blocker pointing here
+						 */
+	struct list_head fl_blocked_member;	/* node in
+						 * ->fl_blocker->fl_blocked_requests
+						 */
+	fl_owner_t fl_owner;
+	unsigned int fl_flags;
+	unsigned char fl_type;
+	unsigned int fl_pid;
+	int fl_link_cpu;		/* what cpu's list is this on? */
+	wait_queue_head_t fl_wait;
+	struct file *fl_file;
+#else
 	union {
 		struct file_lock_core c;
 		struct {
@@ -122,6 +140,7 @@ struct file_lock {
 			struct file *fl_file;
 		};
 	};
+#endif
 	loff_t fl_start;
 	loff_t fl_end;
 

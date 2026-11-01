@@ -20165,7 +20165,7 @@ static int nl80211_netlink_notify(struct notifier_block * nb,
 				schedule_work(&rdev->destroy_work);
 			} else if (wdev->conn_owner_nlportid == notify->portid) {
 				wiphy_work_queue(wdev->wiphy,
-						 &wdev->disconnect_wk);
+						 &wdev->disconnect_wk_wiphy);
 			}
 
 			cfg80211_release_pmsr(wdev, notify->portid);

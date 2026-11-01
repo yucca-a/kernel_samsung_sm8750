@@ -138,6 +138,7 @@ struct latency_stat {
 
 struct iolatency_grp {
 	struct blkg_policy_data pd;
+	struct rcu_head rcu_head; /* policy-owned deferred free state */
 	struct latency_stat __percpu *stats;
 	struct latency_stat cur_stat;
 	struct blk_iolatency *blkiolat;
@@ -1034,7 +1035,7 @@ static void iolatency_pd_offline(struct blkg_policy_data *pd)
 static void iolat_release(struct rcu_head *rcu)
 {
 	struct blkg_policy_data *pd =
-		container_of(rcu, struct blkg_policy_data, rcu_head);
+		&container_of(rcu, struct iolatency_grp, rcu_head)->pd;
 	struct iolatency_grp *iolat = pd_to_lat(pd);
 
 	free_percpu(iolat->stats);
@@ -1052,7 +1053,7 @@ static void iolatency_pd_free(struct blkg_policy_data *pd)
 	 */
 	if (blkg)
 		blkcg_clear_delay(blkg);
-	call_rcu(&pd->rcu_head, iolat_release);
+	call_rcu(&pd_to_lat(pd)->rcu_head, iolat_release);
 }
 
 static struct cftype iolatency_files[] = {

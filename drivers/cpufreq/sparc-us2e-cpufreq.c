@@ -301,13 +301,19 @@ static void us2e_freq_cpu_exit(struct cpufreq_policy *policy)
 	us2e_freq_target(policy, 0);
 }
 
+static int us2e_freq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	us2e_freq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cpufreq_us2e_driver = {
 	.name = "UltraSPARC-IIe",
 	.init = us2e_freq_cpu_init,
 	.verify = cpufreq_generic_frequency_table_verify,
 	.target_index = us2e_freq_target,
 	.get = us2e_freq_get,
-	.exit = us2e_freq_cpu_exit,
+	.exit = us2e_freq_cpu_exit_vendor_abi,
 };
 
 static int __init us2e_freq_init(void)

@@ -288,7 +288,7 @@ static __cold struct io_ring_ctx *io_ring_ctx_alloc(struct io_uring_params *p)
 	struct io_ring_ctx *ctx;
 	int hash_bits;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	ctx = kzalloc(sizeof(struct io_ring_ctx_storage), GFP_KERNEL);
 	if (!ctx)
 		return NULL;
 
@@ -1306,10 +1306,9 @@ void tctx_task_work(struct callback_head *cb)
 
 static void io_poll_wq_wake_rcu(struct rcu_head *rcu)
 {
-	struct io_ring_ctx *ctx = container_of(rcu, struct io_ring_ctx,
-					       poll_wq_rcu);
+	struct io_ring_ctx *ctx = &container_of(rcu, struct io_ring_ctx_storage, poll_wq_rcu)->ctx;
 
-	atomic_set(&ctx->poll_wq_rcu_pending, 0);
+	atomic_set(&io_ring_ctx_ext(ctx)->poll_wq_rcu_pending, 0);
 	io_poll_wq_wake(ctx);
 	percpu_ref_put(&ctx->refs);
 }
@@ -1323,10 +1322,10 @@ static void io_poll_wq_wake_rcu(struct rcu_head *rcu)
 static void io_local_work_wake_poll(struct io_ring_ctx *ctx)
 {
 	if (!wq_has_sleeper(&ctx->poll_wq) ||
-	    atomic_xchg(&ctx->poll_wq_rcu_pending, 1))
+	    atomic_xchg(&io_ring_ctx_ext(ctx)->poll_wq_rcu_pending, 1))
 		return;
 	percpu_ref_get(&ctx->refs);
-	call_rcu_hurry(&ctx->poll_wq_rcu, io_poll_wq_wake_rcu);
+	call_rcu_hurry(&io_ring_ctx_ext(ctx)->poll_wq_rcu, io_poll_wq_wake_rcu);
 }
 
 static inline void io_req_local_work_add(struct io_kiocb *req, unsigned flags)

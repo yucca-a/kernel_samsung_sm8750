@@ -100,7 +100,7 @@ register_slot(acpi_handle handle, u32 lvl, void *context, void **rv)
 	 */
 	list_for_each_entry(slot, &slot_list, list) {
 		pci_slot = slot->pci_slot;
-		if (pci_slot->bus == pci_bus && pci_slot->number == device)
+		if (pci_slot->bus == pci_bus && pci_slot->number_full == device)
 			return AE_OK;
 	}
 

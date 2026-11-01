@@ -57,21 +57,32 @@ struct ip_mc_socklist {
 };
 
 struct ip_sf_list {
+#ifdef __GENKSYMS__
+	struct ip_sf_list 	*sf_next;
+#else
 	struct ip_sf_list __rcu	*sf_next;
+#endif
 	unsigned long		sf_count[2];	/* include/exclude counts */
 	__be32			sf_inaddr;
 	unsigned char		sf_gsresp;	/* include in g & s response? */
 	unsigned char		sf_oldin;	/* change state */
 	unsigned char		sf_crcount;	/* retrans. left to send */
-	struct rcu_head		rcu;
 };
 
 struct ip_mc_list {
 	struct in_device	*interface;
 	__be32			multiaddr;
 	unsigned int		sfmode;
+#ifdef __GENKSYMS__
+	struct ip_sf_list 	*sources;
+#else
 	struct ip_sf_list __rcu	*sources;
+#endif
+#ifdef __GENKSYMS__
+	struct ip_sf_list 	*tomb;
+#else
 	struct ip_sf_list __rcu	*tomb;
+#endif
 	unsigned long		sfcount[2];
 	union {
 		struct ip_mc_list *next;

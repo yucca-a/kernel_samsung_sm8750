@@ -1593,7 +1593,7 @@ int cfg80211_disconnect(struct cfg80211_registered_device *rdev,
 void cfg80211_autodisconnect_wk(struct wiphy *wiphy, struct wiphy_work *work)
 {
 	struct wireless_dev *wdev =
-		container_of(work, struct wireless_dev, disconnect_wk);
+		container_of(work, struct wireless_dev, disconnect_wk_wiphy);
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
 
 	wdev_lock(wdev);

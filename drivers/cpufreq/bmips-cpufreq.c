@@ -143,13 +143,19 @@ static int bmips_cpufreq_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static int bmips_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	bmips_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver bmips_cpufreq_driver = {
 	.flags		= CPUFREQ_NEED_INITIAL_FREQ_CHECK,
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= bmips_cpufreq_target_index,
 	.get		= bmips_cpufreq_get,
 	.init		= bmips_cpufreq_init,
-	.exit		= bmips_cpufreq_exit,
+	.exit		= bmips_cpufreq_exit_vendor_abi,
 	.attr		= cpufreq_generic_attr,
 	.name		= BMIPS_CPUFREQ_PREFIX,
 };

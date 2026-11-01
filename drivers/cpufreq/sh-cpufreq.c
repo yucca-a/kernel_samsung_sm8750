@@ -143,6 +143,12 @@ static void sh_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 	clk_put(cpuclk);
 }
 
+static int sh_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	sh_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver sh_cpufreq_driver = {
 	.name		= "sh",
 	.flags		= CPUFREQ_NO_AUTO_DYNAMIC_SWITCHING,
@@ -150,7 +156,7 @@ static struct cpufreq_driver sh_cpufreq_driver = {
 	.target		= sh_cpufreq_target,
 	.verify		= sh_cpufreq_verify,
 	.init		= sh_cpufreq_cpu_init,
-	.exit		= sh_cpufreq_cpu_exit,
+	.exit		= sh_cpufreq_cpu_exit_vendor_abi,
 	.attr		= cpufreq_generic_attr,
 };
 

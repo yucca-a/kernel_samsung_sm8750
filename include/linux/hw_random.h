@@ -50,7 +50,6 @@ struct hwrng {
 	/* internal. */
 	struct list_head list;
 	struct kref ref;
-	struct work_struct cleanup_work;
 	struct completion cleanup_done;
 	struct completion dying;
 };

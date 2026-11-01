@@ -986,6 +986,7 @@ int usb_register_device_driver(struct usb_device_driver *new_udriver,
 	if (usb_disabled())
 		return -ENODEV;
 
+	new_udriver->drvwrap.for_devices = 1;
 	new_udriver->driver.name = new_udriver->name;
 	new_udriver->driver.bus = &usb_bus_type;
 	new_udriver->driver.probe = usb_probe_device;
@@ -1053,6 +1054,8 @@ int usb_register_driver(struct usb_driver *new_driver, struct module *owner,
 	if (usb_disabled())
 		return -ENODEV;
 
+	new_driver->drvwrap.for_devices = 0;
+	spin_lock_init(&new_driver->dynids.lock);
 	new_driver->driver.name = new_driver->name;
 	new_driver->driver.bus = &usb_bus_type;
 	new_driver->driver.probe = usb_probe_interface;

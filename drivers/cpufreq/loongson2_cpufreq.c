@@ -90,13 +90,19 @@ static int loongson2_cpufreq_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static int loongson2_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	loongson2_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver loongson2_cpufreq_driver = {
 	.name = "loongson2",
 	.init = loongson2_cpufreq_cpu_init,
 	.verify = cpufreq_generic_frequency_table_verify,
 	.target_index = loongson2_cpufreq_target,
 	.get = cpufreq_generic_get,
-	.exit = loongson2_cpufreq_exit,
+	.exit = loongson2_cpufreq_exit_vendor_abi,
 	.attr = cpufreq_generic_attr,
 };
 

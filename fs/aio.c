@@ -1173,11 +1173,11 @@ static void aio_complete(struct aio_kiocb *iocb)
 
 	/*
 	 * Check if the user asked us to deliver the result through an
-	 * eventfd. The eventfd_signal() function is safe to be called
+	 * eventfd. The eventfd_signal_one() function is safe to be called
 	 * from IRQ context.
 	 */
 	if (iocb->ki_eventfd)
-		eventfd_signal(iocb->ki_eventfd);
+		eventfd_signal_one(iocb->ki_eventfd);
 
 	/*
 	 * We have to order our ring_info tail store above and test
@@ -1939,7 +1939,7 @@ static int __io_submit_one(struct kioctx *ctx, const struct iocb *iocb,
 		 * If the IOCB_FLAG_RESFD flag of aio_flags is set, get an
 		 * instance of the file* now. The file descriptor must be
 		 * an eventfd() fd, and will be signaled for each completed
-		 * event using the eventfd_signal() function.
+		 * event using the eventfd_signal_one() function.
 		 */
 		eventfd = eventfd_ctx_fdget(iocb->aio_resfd);
 		if (IS_ERR(eventfd))

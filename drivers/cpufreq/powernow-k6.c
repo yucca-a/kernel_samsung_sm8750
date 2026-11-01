@@ -246,11 +246,17 @@ static unsigned int powernow_k6_get(unsigned int cpu)
 	return ret;
 }
 
+static int powernow_k6_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	powernow_k6_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver powernow_k6_driver = {
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= powernow_k6_target,
 	.init		= powernow_k6_cpu_init,
-	.exit		= powernow_k6_cpu_exit,
+	.exit		= powernow_k6_cpu_exit_vendor_abi,
 	.get		= powernow_k6_get,
 	.name		= "powernow-k6",
 	.attr		= cpufreq_generic_attr,

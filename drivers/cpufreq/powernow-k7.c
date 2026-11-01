@@ -657,6 +657,12 @@ static void powernow_cpu_exit(struct cpufreq_policy *policy)
 	kfree(powernow_table);
 }
 
+static int powernow_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	powernow_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver powernow_driver = {
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= powernow_target,
@@ -665,7 +671,7 @@ static struct cpufreq_driver powernow_driver = {
 	.bios_limit	= acpi_processor_get_bios_limit,
 #endif
 	.init		= powernow_cpu_init,
-	.exit		= powernow_cpu_exit,
+	.exit		= powernow_cpu_exit_vendor_abi,
 	.name		= "powernow-k7",
 	.attr		= cpufreq_generic_attr,
 };

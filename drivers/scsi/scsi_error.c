@@ -2382,7 +2382,7 @@ int scsi_error_handler(void *data)
 		 * what we need to do to get it up and online again (if we can).
 		 * If we fail, we end up taking the thing offline.
 		 */
-		eh_noresume = READ_ONCE(shost->eh_noresume);
+		eh_noresume = scsi_host_eh_noresume(shost);
 		if (!eh_noresume && scsi_autopm_get_host(shost) != 0) {
 			SCSI_LOG_ERROR_RECOVERY(1,
 				shost_printk(KERN_ERR, shost,

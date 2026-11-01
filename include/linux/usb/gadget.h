@@ -112,7 +112,9 @@ struct usb_request {
 	unsigned		zero:1;
 	unsigned		short_not_ok:1;
 	unsigned		dma_mapped:1;
-	unsigned		sg_was_mapped:1;
+#ifndef __GENKSYMS__
+	unsigned		sg_was_mapped:1; /* unused bit after dma_mapped */
+#endif
 
 	void			(*complete)(struct usb_ep *ep,
 					struct usb_request *req);

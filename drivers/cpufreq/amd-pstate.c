@@ -1565,13 +1565,19 @@ static int amd_pstate_epp_resume(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static int amd_pstate_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	amd_pstate_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver amd_pstate_driver = {
 	.flags		= CPUFREQ_CONST_LOOPS | CPUFREQ_NEED_UPDATE_LIMITS,
 	.verify		= amd_pstate_verify,
 	.target		= amd_pstate_target,
 	.fast_switch    = amd_pstate_fast_switch,
 	.init		= amd_pstate_cpu_init,
-	.exit		= amd_pstate_cpu_exit,
+	.exit		= amd_pstate_cpu_exit_vendor_abi,
 	.suspend	= amd_pstate_cpu_suspend,
 	.resume		= amd_pstate_cpu_resume,
 	.set_boost	= amd_pstate_set_boost,
@@ -1579,12 +1585,18 @@ static struct cpufreq_driver amd_pstate_driver = {
 	.attr		= amd_pstate_attr,
 };
 
+static int amd_pstate_epp_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	amd_pstate_epp_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver amd_pstate_epp_driver = {
 	.flags		= CPUFREQ_CONST_LOOPS,
 	.verify		= amd_pstate_epp_verify_policy,
 	.setpolicy	= amd_pstate_epp_set_policy,
 	.init		= amd_pstate_epp_cpu_init,
-	.exit		= amd_pstate_epp_cpu_exit,
+	.exit		= amd_pstate_epp_cpu_exit_vendor_abi,
 	.offline	= amd_pstate_epp_cpu_offline,
 	.online		= amd_pstate_epp_cpu_online,
 	.suspend	= amd_pstate_epp_suspend,

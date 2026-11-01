@@ -10505,7 +10505,7 @@ static void init_dummy_netdev_core(struct net_device *dev)
  *	that need to tie several hardware interfaces to a single NAPI
  *	poll scheduler due to HW limitations.
  */
-void init_dummy_netdev(struct net_device *dev)
+int init_dummy_netdev(struct net_device *dev)
 {
 	/* Clear everything. Note we don't initialize spinlocks
 	 * as they aren't supposed to be taken by any of the
@@ -10514,6 +10514,7 @@ void init_dummy_netdev(struct net_device *dev)
 	 */
 	memset(dev, 0, sizeof(struct net_device));
 	init_dummy_netdev_core(dev);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(init_dummy_netdev);
 
@@ -11333,7 +11334,7 @@ void unregister_netdev(struct net_device *dev)
 EXPORT_SYMBOL(unregister_netdev);
 
 /**
- *	__dev_change_net_namespace - move device to different nethost namespace
+ *	__dev_change_net_namespace_ext - move device to different nethost namespace
  *	@dev: device
  *	@net: network namespace
  *	@pat: If not NULL name pattern to try if the current device name
@@ -11349,7 +11350,7 @@ EXPORT_SYMBOL(unregister_netdev);
  *	Callers must hold the rtnl semaphore.
  */
 
-int __dev_change_net_namespace(struct net_device *dev, struct net *net,
+int __dev_change_net_namespace_ext(struct net_device *dev, struct net *net,
 			       const char *pat, int new_ifindex,
 			       struct netlink_ext_ack *extack)
 {
@@ -11518,6 +11519,13 @@ int __dev_change_net_namespace(struct net_device *dev, struct net *net,
 	err = 0;
 out:
 	return err;
+}
+EXPORT_SYMBOL_GPL(__dev_change_net_namespace_ext);
+
+int __dev_change_net_namespace(struct net_device *dev, struct net *net,
+			       const char *pat, int new_ifindex)
+{
+	return __dev_change_net_namespace_ext(dev, net, pat, new_ifindex, NULL);
 }
 EXPORT_SYMBOL_GPL(__dev_change_net_namespace);
 

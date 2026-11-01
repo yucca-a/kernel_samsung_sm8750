@@ -158,6 +158,16 @@ static int __tty_fasync(int fd, struct file *filp, int on);
 static int tty_fasync(int fd, struct file *filp, int on);
 static void release_tty(struct tty_struct *tty, int idx);
 
+/* Allocation-owned state keeps struct tty_struct stable for vendor modules. */
+struct tty_storage {
+	struct tty_struct tty;
+	wait_queue_head_t break_wait;
+};
+
+#define tty_break_wait(tty) \
+	(container_of(tty, struct tty_storage, tty)->break_wait)
+
+
 /**
  * free_tty_struct	-	free a disused tty
  * @tty: tty struct to free
@@ -629,7 +639,7 @@ static void __tty_hangup(struct tty_struct *tty, int exit_session)
 
 	tty_ldisc_hangup(tty, cons_filp != NULL);
 
-	wake_up_interruptible(&tty->break_wait);
+	wake_up_interruptible(&tty_break_wait(tty));
 
 	spin_lock_irq(&tty->ctrl.lock);
 	clear_bit(TTY_THROTTLED, &tty->flags);
@@ -2495,7 +2505,7 @@ static int send_break(struct file *file, struct tty_struct *tty, unsigned int du
 	}
 
 	timeout = msecs_to_jiffies(duration);
-	timeout = wait_event_interruptible_timeout(tty->break_wait,
+	timeout = wait_event_interruptible_timeout(tty_break_wait(tty),
 						   tty_hung_up_p(file),
 						   timeout);
 	/* return early on hangup only */
@@ -3106,7 +3116,7 @@ struct tty_struct *alloc_tty_struct(struct tty_driver *driver, int idx)
 {
 	struct tty_struct *tty;
 
-	tty = kzalloc(sizeof(*tty), GFP_KERNEL_ACCOUNT);
+	tty = kzalloc(sizeof(struct tty_storage), GFP_KERNEL_ACCOUNT);
 	if (!tty)
 		return NULL;
 
@@ -3124,7 +3134,7 @@ struct tty_struct *alloc_tty_struct(struct tty_driver *driver, int idx)
 	init_ldsem(&tty->ldisc_sem);
 	init_waitqueue_head(&tty->write_wait);
 	init_waitqueue_head(&tty->read_wait);
-	init_waitqueue_head(&tty->break_wait);
+	init_waitqueue_head(&tty_break_wait(tty));
 	INIT_WORK(&tty->hangup_work, do_tty_hangup);
 	mutex_init(&tty->atomic_write_lock);
 	spin_lock_init(&tty->ctrl.lock);

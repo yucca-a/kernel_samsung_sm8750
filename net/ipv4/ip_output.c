@@ -379,7 +379,7 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 	 */
 
 	if (rt->rt_flags&RTCF_MULTICAST) {
-		if (sk_mc_loop(sk)
+		if (sk_mc_loop_const(sk)
 #ifdef CONFIG_IP_MROUTE
 		/* Small optimization: do not loopback not local frames,
 		   which returned after forwarding; they will be  dropped

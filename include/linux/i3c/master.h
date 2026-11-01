@@ -232,7 +232,7 @@ struct i3c_device {
 	struct device dev;
 	struct i3c_dev_desc *desc;
 	struct i3c_bus *bus;
-	struct list_head node;
+
 };
 
 /*

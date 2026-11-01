@@ -2995,7 +2995,7 @@ static int
 ctnetlink_exp_dump_expect(struct sk_buff *skb,
 			  const struct nf_conntrack_expect *exp)
 {
-	__s32 timeout = (__s32)(READ_ONCE(exp->timeout_jiffies) - nfct_time_stamp) / HZ;
+	__s32 timeout = (__s32)(READ_ONCE(nf_ct_expect_timeout(exp)) - nfct_time_stamp) / HZ;
 	struct nf_conn *master = exp->master;
 	struct nf_conn_help *help;
 #if IS_ENABLED(CONFIG_NF_NAT)
@@ -3473,7 +3473,7 @@ ctnetlink_change_expect(struct nf_conntrack_expect *x,
 			const struct nlattr * const cda[])
 {
 	if (cda[CTA_EXPECT_TIMEOUT])
-		WRITE_ONCE(x->timeout_jiffies, nfct_time_stamp +
+		WRITE_ONCE(nf_ct_expect_timeout(x), nfct_time_stamp +
 			   ntohl(nla_get_be32(cda[CTA_EXPECT_TIMEOUT])) * HZ);
 
 	return 0;

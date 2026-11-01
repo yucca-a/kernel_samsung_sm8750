@@ -264,6 +264,7 @@ struct mptcp_data_frag {
 struct mptcp_sock {
 	/* inet_connection_sock must be the first member */
 	struct inet_connection_sock sk;
+	struct timer_list mptcp_tout_timer;
 	u64		local_key;
 	u64		remote_key;
 	u64		write_seq;
@@ -766,7 +767,7 @@ static inline void mptcp_stop_tout_timer(struct sock *sk)
 	if (!inet_csk(sk)->icsk_mtup.probe_timestamp)
 		return;
 
-	sk_stop_timer(sk, &inet_csk(sk)->mptcp_tout_timer);
+	sk_stop_timer(sk, &mptcp_sk(sk)->mptcp_tout_timer);
 	inet_csk(sk)->icsk_mtup.probe_timestamp = 0;
 }
 

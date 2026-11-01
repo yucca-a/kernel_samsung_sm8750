@@ -171,7 +171,7 @@ static irqreturn_t vhost_vdpa_virtqueue_cb(void *private)
 	struct eventfd_ctx *call_ctx = vq->call_ctx.ctx;
 
 	if (call_ctx)
-		eventfd_signal(call_ctx);
+		eventfd_signal_one(call_ctx);
 
 	return IRQ_HANDLED;
 }
@@ -183,7 +183,7 @@ static irqreturn_t vhost_vdpa_config_cb(void *private)
 
 	spin_lock_irqsave(&v->config_lock, flags);
 	if (v->config_ctx)
-		eventfd_signal(v->config_ctx);
+		eventfd_signal_one(v->config_ctx);
 	spin_unlock_irqrestore(&v->config_lock, flags);
 
 	return IRQ_HANDLED;

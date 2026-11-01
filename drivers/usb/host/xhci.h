@@ -74,6 +74,12 @@ struct xhci_cap_regs {
  * @portli:	Port Link Info
  * @porthlmpc:	Port Hardware LPM Control
  */
+#define NUM_PORT_REGS 4
+#define PORTSC 0
+#define PORTPMSC 1
+#define PORTLI 2
+#define PORTHLPMC 3
+
 struct xhci_port_regs {
 	__le32	portsc;
 	__le32	portpmsc;
@@ -108,7 +114,28 @@ struct xhci_op_regs {
 	__le32	config_reg;
 	/* rsvd: offset 0x3C-3FF */
 	__le32	reserved4[241];
-	struct xhci_port_regs port_regs[];
+#ifdef __GENKSYMS__
+	/* port 1 registers, which serve as a base address for other ports */
+	__le32	port_status_base;
+	__le32	port_power_base;
+	__le32	port_link_base;
+	__le32	reserved5;
+	/* registers for ports 2-255 */
+	__le32	reserved6[NUM_PORT_REGS*254];
+#else
+	union {
+		struct {
+	/* port 1 registers, which serve as a base address for other ports */
+	__le32	port_status_base;
+	__le32	port_power_base;
+	__le32	port_link_base;
+	__le32	reserved5;
+	/* registers for ports 2-255 */
+	__le32	reserved6[NUM_PORT_REGS*254];
+		};
+		struct xhci_port_regs port_regs[255];
+	};
+#endif
 };
 
 /* USBCMD - USB command - command bitmasks */
@@ -1497,7 +1524,14 @@ struct xhci_port_cap {
 };
 
 struct xhci_port {
-	struct xhci_port_regs __iomem	*port_reg;
+#ifdef __GENKSYMS__
+	__le32 __iomem		*addr;
+#else
+	union {
+		__le32 __iomem *addr;
+		struct xhci_port_regs __iomem *port_reg;
+	};
+#endif
 	int			hw_portnum;
 	int			hcd_portnum;
 	struct xhci_hub		*rhub;
@@ -1531,6 +1565,7 @@ struct xhci_hcd {
 	struct xhci_doorbell_array __iomem *dba;
 
 	/* Cached register copies of read-only HC data */
+	__u32		hcs_params1;
 	__u32		hcs_params2;
 	__u32		hcs_params3;
 	__u32		hcc_params;

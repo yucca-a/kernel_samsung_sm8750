@@ -1151,6 +1151,7 @@ static inline int usb_make_path(struct usb_device *dev, char *buf, size_t size)
 /* Stuff for dynamic usb ids */
 extern struct mutex usb_dynids_lock;
 struct usb_dynids {
+	spinlock_t lock; /* legacy slot; updates now use usb_dynids_lock */
 	struct list_head list;
 };
 
@@ -1233,6 +1234,11 @@ extern ssize_t usb_show_dynids(struct usb_dynids *dynids, char *buf);
  * well as forcing all pending I/O requests to complete (by unlinking
  * them as necessary, and blocking until the unlinks complete).
  */
+struct usbdrv_wrap {
+	struct device_driver driver;
+	int for_devices;
+};
+
 struct usb_driver {
 	const char *name;
 
@@ -1255,7 +1261,17 @@ struct usb_driver {
 	const struct attribute_group **dev_groups;
 
 	struct usb_dynids dynids;
-	struct device_driver driver;
+#ifdef __GENKSYMS__
+	struct usbdrv_wrap drvwrap;
+#else
+	union {
+		struct usbdrv_wrap drvwrap;
+		struct {
+			struct device_driver driver;
+			int legacy_for_devices;
+		};
+	};
+#endif
 	unsigned int no_dynamic_id:1;
 	unsigned int supports_autosuspend:1;
 	unsigned int disable_hub_initiated_lpm:1;
@@ -1306,7 +1322,17 @@ struct usb_device_driver {
 	int (*suspend) (struct usb_device *udev, pm_message_t message);
 	int (*resume) (struct usb_device *udev, pm_message_t message);
 	const struct attribute_group **dev_groups;
-	struct device_driver driver;
+#ifdef __GENKSYMS__
+	struct usbdrv_wrap drvwrap;
+#else
+	union {
+		struct usbdrv_wrap drvwrap;
+		struct {
+			struct device_driver driver;
+			int legacy_for_devices;
+		};
+	};
+#endif
 	const struct usb_device_id *id_table;
 	unsigned int supports_autosuspend:1;
 	unsigned int generic_subclass:1;

@@ -70,7 +70,7 @@ static int ip6t_nat_register_lookups(struct net *net)
 		return -ENOENT;
 
 	xt_nat_net = net_generic(net, ip6table_nat_net_id);
-	ops = kmemdup(nf_nat_ipv6_ops, sizeof(nf_nat_ipv6_ops), GFP_KERNEL);
+	ops = nf_nat_ops_dup(nf_nat_ipv6_ops, sizeof(nf_nat_ipv6_ops), GFP_KERNEL);
 	if (!ops)
 		return -ENOMEM;
 
@@ -81,7 +81,7 @@ static int ip6t_nat_register_lookups(struct net *net)
 			while (i)
 				nf_nat_ipv6_unregister_fn(net, &ops[--i]);
 
-			kfree_rcu(ops, rcu);
+			nf_nat_ops_free_rcu(ops);
 			return ret;
 		}
 	}
@@ -102,7 +102,7 @@ static void ip6t_nat_unregister_lookups(struct net *net)
 	for (i = 0; i < ARRAY_SIZE(nf_nat_ipv6_ops); i++)
 		nf_nat_ipv6_unregister_fn(net, &ops[i]);
 
-	kfree_rcu(ops, rcu);
+	nf_nat_ops_free_rcu(ops);
 }
 
 static int ip6table_nat_table_init(struct net *net)

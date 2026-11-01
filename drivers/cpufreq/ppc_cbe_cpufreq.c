@@ -130,11 +130,17 @@ static int cbe_cpufreq_target(struct cpufreq_policy *policy,
 	return set_pmode(policy->cpu, cbe_pmode_new);
 }
 
+static int cbe_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	cbe_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cbe_cpufreq_driver = {
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= cbe_cpufreq_target,
 	.init		= cbe_cpufreq_cpu_init,
-	.exit		= cbe_cpufreq_cpu_exit,
+	.exit		= cbe_cpufreq_cpu_exit_vendor_abi,
 	.name		= "cbe-cpufreq",
 	.flags		= CPUFREQ_CONST_LOOPS,
 };

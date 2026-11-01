@@ -3,12 +3,46 @@
 #define _NF_NAT_H
 
 #include <linux/list.h>
+#include <linux/netfilter.h>
+#include <linux/slab.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter/nf_conntrack_pptp.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_extend.h>
 #include <net/netfilter/nf_conntrack_tuple.h>
 #include <uapi/linux/netfilter/nf_nat.h>
+
+/* Private prefix keeps the public hook array stride unchanged. */
+struct nf_nat_ops_storage {
+	struct rcu_head rcu;
+	struct nf_hook_ops ops[];
+};
+
+static inline struct nf_hook_ops *nf_nat_ops_dup(const struct nf_hook_ops *ops,
+						 size_t bytes, gfp_t flags)
+{
+	struct nf_nat_ops_storage *storage;
+
+	storage = kmalloc(sizeof(*storage) + bytes, flags);
+	if (!storage)
+		return NULL;
+	memcpy(storage->ops, ops, bytes);
+	return storage->ops;
+}
+
+static inline void nf_nat_ops_free(struct nf_hook_ops *ops)
+{
+	if (ops)
+		kfree(container_of((void *)ops, struct nf_nat_ops_storage, ops));
+}
+
+static inline void nf_nat_ops_free_rcu(struct nf_hook_ops *ops)
+{
+	struct nf_nat_ops_storage *storage;
+
+	storage = container_of((void *)ops, struct nf_nat_ops_storage, ops);
+	kfree_rcu(storage, rcu);
+}
 
 enum nf_nat_manip_type {
 	NF_NAT_MANIP_SRC,

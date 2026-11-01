@@ -54,7 +54,7 @@ static irqreturn_t vfio_fsl_mc_irq_handler(int irq_num, void *arg)
 {
 	struct vfio_fsl_mc_irq *mc_irq = (struct vfio_fsl_mc_irq *)arg;
 
-	eventfd_signal(mc_irq->trigger);
+	eventfd_signal_one(mc_irq->trigger);
 	return IRQ_HANDLED;
 }
 
@@ -142,13 +142,13 @@ static int vfio_fsl_mc_set_irq_trigger(struct vfio_fsl_mc_device *vdev,
 
 	if (flags & VFIO_IRQ_SET_DATA_NONE) {
 		if (irq->trigger)
-			eventfd_signal(irq->trigger);
+			eventfd_signal_one(irq->trigger);
 
 	} else if (flags & VFIO_IRQ_SET_DATA_BOOL) {
 		u8 trigger = *(u8 *)data;
 
 		if (trigger && irq->trigger)
-			eventfd_signal(irq->trigger);
+			eventfd_signal_one(irq->trigger);
 	}
 
 	return 0;

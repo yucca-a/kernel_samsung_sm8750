@@ -53,15 +53,8 @@ struct nf_conntrack_expect {
 	/* The conntrack of the master connection */
 	struct nf_conn *master;
 
-	/* jiffies32 when this expectation expires */
-#ifdef __GENKSYMS__
+	/* Legacy timer layout; expiry state is owned by the expectation core. */
 	struct timer_list timeout;
-#else
-	union {
-		struct timer_list timeout; /* Preserve vendor layout. */
-		u32 timeout_jiffies;
-	};
-#endif
 
 #if IS_ENABLED(CONFIG_NF_NAT)
 	union nf_inet_addr saved_addr;
@@ -78,15 +71,19 @@ struct nf_conntrack_expect {
 /* Allocator-owned extension, outside the vendor-visible expectation. */
 struct nf_ct_expect_storage {
 	struct nf_conntrack_expect exp;
+	u32 timeout_jiffies;
 	struct nf_conntrack_helper __rcu *creator;
 };
+
+#define nf_ct_expect_timeout(_exp) \
+	(container_of(_exp, struct nf_ct_expect_storage, exp)->timeout_jiffies)
 
 static inline bool nf_ct_exp_is_expired(const struct nf_conntrack_expect *exp)
 {
 	if (READ_ONCE(exp->flags) & NF_CT_EXPECT_DEAD)
 		return true;
 
-	return (__s32)(READ_ONCE(exp->timeout_jiffies) - nfct_time_stamp) <= 0;
+	return (__s32)(READ_ONCE(nf_ct_expect_timeout(exp)) - nfct_time_stamp) <= 0;
 }
 
 

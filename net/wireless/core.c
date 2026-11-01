@@ -1248,7 +1248,7 @@ static void _cfg80211_unregister_wdev(struct wireless_dev *wdev,
 	list_del_rcu(&wdev->list);
 	synchronize_net();
 	rdev->devlist_generation++;
-	wiphy_work_cancel(wdev->wiphy, &wdev->disconnect_wk);
+	wiphy_work_cancel(wdev->wiphy, &wdev->disconnect_wk_wiphy);
 
 	cfg80211_mlme_purge_registrations(wdev);
 
@@ -1415,7 +1415,7 @@ void cfg80211_init_wdev(struct wireless_dev *wdev)
 	INIT_LIST_HEAD(&wdev->mgmt_registrations);
 	INIT_LIST_HEAD(&wdev->pmsr_list);
 	spin_lock_init(&wdev->pmsr_lock);
-	wiphy_work_init(&wdev->pmsr_free_wk, cfg80211_pmsr_free_wk);
+	wiphy_work_init(&wdev->pmsr_free_wk_wiphy, cfg80211_pmsr_free_wk);
 
 #ifdef CONFIG_CFG80211_WEXT
 	wdev->wext.default_key = -1;
@@ -1437,7 +1437,7 @@ void cfg80211_init_wdev(struct wireless_dev *wdev)
 	     wdev->iftype == NL80211_IFTYPE_ADHOC) && !wdev->use_4addr)
 		wdev->netdev->priv_flags |= IFF_DONT_BRIDGE;
 
-	wiphy_work_init(&wdev->disconnect_wk, cfg80211_autodisconnect_wk);
+	wiphy_work_init(&wdev->disconnect_wk_wiphy, cfg80211_autodisconnect_wk);
 }
 
 void cfg80211_register_wdev(struct cfg80211_registered_device *rdev,
@@ -1546,7 +1546,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 		cfg80211_leave(rdev, wdev);
 		cfg80211_remove_links(wdev);
 		/* since we just did cfg80211_leave() nothing to do there */
-		wiphy_work_cancel(wdev->wiphy, &wdev->disconnect_wk);
+		wiphy_work_cancel(wdev->wiphy, &wdev->disconnect_wk_wiphy);
 		wiphy_unlock(&rdev->wiphy);
 		break;
 	case NETDEV_DOWN:

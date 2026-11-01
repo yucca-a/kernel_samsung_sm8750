@@ -141,13 +141,19 @@ static void omap_cpu_exit(struct cpufreq_policy *policy)
 	clk_put(policy->clk);
 }
 
+static int omap_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	omap_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver omap_driver = {
 	.flags		= CPUFREQ_NEED_INITIAL_FREQ_CHECK,
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= omap_target,
 	.get		= cpufreq_generic_get,
 	.init		= omap_cpu_init,
-	.exit		= omap_cpu_exit,
+	.exit		= omap_cpu_exit_vendor_abi,
 	.register_em	= cpufreq_register_em_with_opp,
 	.name		= "omap",
 	.attr		= cpufreq_generic_attr,

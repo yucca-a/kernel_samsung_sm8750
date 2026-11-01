@@ -369,11 +369,17 @@ static void eps_cpu_exit(struct cpufreq_policy *policy)
 	eps_cpu[cpu] = NULL;
 }
 
+static int eps_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	eps_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver eps_driver = {
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= eps_target,
 	.init		= eps_cpu_init,
-	.exit		= eps_cpu_exit,
+	.exit		= eps_cpu_exit_vendor_abi,
 	.get		= eps_get,
 	.name		= "e_powersaver",
 	.attr		= cpufreq_generic_attr,

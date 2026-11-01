@@ -258,10 +258,16 @@ static int virt_cpufreq_verify_policy(struct cpufreq_policy_data *policy)
 	return 0;
 }
 
+static int virt_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	virt_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cpufreq_virt_driver = {
 	.name		= "virt-cpufreq",
 	.init		= virt_cpufreq_cpu_init,
-	.exit		= virt_cpufreq_cpu_exit,
+	.exit		= virt_cpufreq_cpu_exit_vendor_abi,
 	.online         = virt_cpufreq_online,
 	.offline        = virt_cpufreq_offline,
 	.verify		= virt_cpufreq_verify_policy,

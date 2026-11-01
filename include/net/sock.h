@@ -492,10 +492,14 @@ struct sock {
 	__u32			sk_dst_pending_confirm;
 	u32			sk_pacing_status; /* see enum sk_pacing */
 	long			sk_sndtimeo;
+#ifdef __GENKSYMS__
+	struct timer_list	sk_timer;
+#else
 	union {
 		struct timer_list sk_timer;
 		struct timer_list mptcp_retransmit_timer;
 	};
+#endif
 	__u32			sk_priority;
 	__u32			sk_mark;
 	unsigned long		sk_pacing_rate; /* bytes per second */
@@ -2368,7 +2372,8 @@ static inline void sock_confirm_neigh(struct sk_buff *skb, struct neighbour *n)
 	}
 }
 
-bool sk_mc_loop(const struct sock *sk);
+bool sk_mc_loop(struct sock *sk);
+bool sk_mc_loop_const(const struct sock *sk);
 
 static inline bool sk_can_gso(const struct sock *sk)
 {

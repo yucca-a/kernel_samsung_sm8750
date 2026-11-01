@@ -138,7 +138,7 @@ static int nh_notifier_mpath_info_init(struct nh_notifier_info *info,
 		struct nh_info *nhi;
 
 		nhi = rtnl_dereference(nhge->nh->nh_info);
-		info->nh_grp->nh_entries[i].weight = nhge->weight;
+		info->nh_grp->nh_entries[i].weight = nhge->weight_full;
 		__nh_notifier_single_info_init(&info->nh_grp->nh_entries[i].nh,
 					       nhi);
 	}
@@ -677,7 +677,7 @@ static int nla_put_nh_group(struct sk_buff *skb, struct nh_group *nhg)
 
 	p = nla_data(nla);
 	for (i = 0; i < nhg->num_nh; ++i) {
-		weight = nhg->nh_entries[i].weight - 1;
+		weight = nhg->nh_entries[i].weight_full - 1;
 
 		*p++ = (struct nexthop_grp) {
 			.id = nhg->nh_entries[i].nh->id,
@@ -1671,14 +1671,14 @@ static void nh_res_group_rebalance(struct nh_group *nhg,
 	INIT_LIST_HEAD(&res_table->uw_nh_entries);
 
 	for (i = 0; i < nhg->num_nh; ++i)
-		total += nhg->nh_entries[i].weight;
+		total += nhg->nh_entries[i].weight_full;
 
 	for (i = 0; i < nhg->num_nh; ++i) {
 		struct nh_grp_entry *nhge = &nhg->nh_entries[i];
 		u16 upper_bound;
 		u64 btw;
 
-		w += nhge->weight;
+		w += nhge->weight_full;
 		btw = ((u64)res_table->num_nh_buckets) * w;
 		upper_bound = DIV_ROUND_CLOSEST_ULL(btw, total);
 		nhge->res.wants_buckets = upper_bound - prev_upper_bound;
@@ -1751,13 +1751,13 @@ static void nh_hthr_group_rebalance(struct nh_group *nhg)
 	int i;
 
 	for (i = 0; i < nhg->num_nh; ++i)
-		total += nhg->nh_entries[i].weight;
+		total += nhg->nh_entries[i].weight_full;
 
 	for (i = 0; i < nhg->num_nh; ++i) {
 		struct nh_grp_entry *nhge = &nhg->nh_entries[i];
 		u32 upper_bound;
 
-		w += nhge->weight;
+		w += nhge->weight_full;
 		upper_bound = DIV_ROUND_CLOSEST_ULL((u64)w << 31, total) - 1;
 		atomic_set(&nhge->hthr.upper_bound, upper_bound);
 	}
@@ -1810,7 +1810,7 @@ static void remove_nh_grp_entry(struct net *net, struct nh_grp_entry *nhge,
 		list_del(&nhges[i].nh_list);
 		new_nhges[j].nh_parent = nhges[i].nh_parent;
 		new_nhges[j].nh = nhges[i].nh;
-		new_nhges[j].weight = nhges[i].weight;
+		new_nhges[j].weight_full = nhges[i].weight_full;
 		list_add(&new_nhges[j].nh_list, &new_nhges[j].nh->grp_list);
 		j++;
 	}
@@ -2501,7 +2501,7 @@ static struct nexthop *nexthop_create_group(struct net *net,
 			nhg->has_v4 = true;
 
 		nhg->nh_entries[i].nh = nhe;
-		nhg->nh_entries[i].weight = nexthop_grp_weight(&entry[i]);
+		nhg->nh_entries[i].weight_full = nexthop_grp_weight(&entry[i]);
 
 		list_add(&nhg->nh_entries[i].nh_list, &nhe->grp_list);
 		nhg->nh_entries[i].nh_parent = nh;

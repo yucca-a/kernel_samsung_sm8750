@@ -2365,9 +2365,8 @@ static void mptcp_retransmit_timer(struct timer_list *t)
 
 static void mptcp_tout_timer(struct timer_list *t)
 {
-	struct inet_connection_sock *icsk =
-		from_timer(icsk, t, mptcp_tout_timer);
-	struct sock *sk = &icsk->icsk_inet.sk;
+	struct mptcp_sock *msk = from_timer(msk, t, mptcp_tout_timer);
+	struct sock *sk = (struct sock *)msk;
 
 	mptcp_schedule_work(sk);
 	sock_put(sk);
@@ -2810,7 +2809,7 @@ void mptcp_reset_tout_timer(struct mptcp_sock *msk, unsigned long fail_tout)
 	 */
 	timeout = inet_csk(sk)->icsk_mtup.probe_timestamp ? close_timeout : fail_tout;
 
-	sk_reset_timer(sk, &inet_csk(sk)->mptcp_tout_timer, timeout);
+	sk_reset_timer(sk, &mptcp_sk(sk)->mptcp_tout_timer, timeout);
 }
 
 static void mptcp_mp_fail_no_response(struct mptcp_sock *msk)
@@ -2941,7 +2940,7 @@ static void __mptcp_init_sock(struct sock *sk)
 	spin_lock_init(&msk->fallback_lock);
 
 	timer_setup(&sk->mptcp_retransmit_timer, mptcp_retransmit_timer, 0);
-	timer_setup(&msk->sk.mptcp_tout_timer, mptcp_tout_timer, 0);
+	timer_setup(&msk->mptcp_tout_timer, mptcp_tout_timer, 0);
 }
 
 static void mptcp_ca_reset(struct sock *sk)
@@ -3145,7 +3144,7 @@ static void __mptcp_destroy_sock(struct sock *sk)
 	might_sleep();
 
 	mptcp_stop_rtx_timer(sk);
-	sk_stop_timer(sk, &inet_csk(sk)->mptcp_tout_timer);
+	sk_stop_timer(sk, &mptcp_sk(sk)->mptcp_tout_timer);
 	msk->pm.status = 0;
 	mptcp_release_sched(msk);
 
@@ -3321,7 +3320,7 @@ static int mptcp_disconnect(struct sock *sk, int flags)
 	msk->timer_ival = TCP_RTO_MIN;
 	sk_stop_timer_sync(sk, &sk->mptcp_retransmit_timer);
 	icsk->icsk_mtup.probe_timestamp = 0;
-	sk_stop_timer_sync(sk, &icsk->mptcp_tout_timer);
+	sk_stop_timer_sync(sk, &mptcp_sk(sk)->mptcp_tout_timer);
 
 	mptcp_pm_connection_closed(msk);
 

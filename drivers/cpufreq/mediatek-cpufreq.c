@@ -606,6 +606,12 @@ static void mtk_cpufreq_exit(struct cpufreq_policy *policy)
 	dev_pm_opp_free_cpufreq_table(info->cpu_dev, &policy->freq_table);
 }
 
+static int mtk_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	mtk_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver mtk_cpufreq_driver = {
 	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK |
 		 CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -614,7 +620,7 @@ static struct cpufreq_driver mtk_cpufreq_driver = {
 	.target_index = mtk_cpufreq_set_target,
 	.get = cpufreq_generic_get,
 	.init = mtk_cpufreq_init,
-	.exit = mtk_cpufreq_exit,
+	.exit = mtk_cpufreq_exit_vendor_abi,
 	.register_em = cpufreq_register_em_with_opp,
 	.name = "mtk-cpufreq",
 	.attr = cpufreq_generic_attr,

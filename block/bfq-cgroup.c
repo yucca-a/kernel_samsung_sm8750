@@ -551,7 +551,7 @@ static void bfq_pd_init(struct blkg_policy_data *pd)
 static void bfqg_release(struct rcu_head *rcu)
 {
 	struct blkg_policy_data *pd =
-		container_of(rcu, struct blkg_policy_data, rcu_head);
+		&container_of(rcu, struct bfq_group, rcu_head)->pd;
 	struct bfq_group *bfqg = pd_to_bfqg(pd);
 
 	bfqg_stats_exit(&bfqg->stats);
@@ -560,7 +560,7 @@ static void bfqg_release(struct rcu_head *rcu)
 
 static void bfq_pd_free(struct blkg_policy_data *pd)
 {
-	call_rcu(&pd->rcu_head, bfqg_release);
+	call_rcu(&pd_to_bfqg(pd)->rcu_head, bfqg_release);
 }
 
 static void bfq_pd_reset_stats(struct blkg_policy_data *pd)

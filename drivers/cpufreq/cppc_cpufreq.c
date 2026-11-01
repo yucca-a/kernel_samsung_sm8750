@@ -855,6 +855,12 @@ static struct freq_attr *cppc_cpufreq_attr[] = {
 	NULL,
 };
 
+static int cppc_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	cppc_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cppc_cpufreq_driver = {
 	.flags = CPUFREQ_CONST_LOOPS | CPUFREQ_NEED_UPDATE_LIMITS,
 	.verify = cppc_verify_policy,
@@ -862,7 +868,7 @@ static struct cpufreq_driver cppc_cpufreq_driver = {
 	.get = cppc_cpufreq_get_rate,
 	.fast_switch = cppc_cpufreq_fast_switch,
 	.init = cppc_cpufreq_cpu_init,
-	.exit = cppc_cpufreq_cpu_exit,
+	.exit = cppc_cpufreq_cpu_exit_vendor_abi,
 	.set_boost = cppc_cpufreq_set_boost,
 	.attr = cppc_cpufreq_attr,
 	.name = "cppc_cpufreq",

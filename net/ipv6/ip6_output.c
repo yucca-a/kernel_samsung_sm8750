@@ -81,7 +81,7 @@ static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *
 	hdr = ipv6_hdr(skb);
 	daddr = &hdr->daddr;
 	if (ipv6_addr_is_multicast(daddr)) {
-		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(sk) &&
+		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop_const(sk) &&
 		    ((mroute6_is_socket(net, skb) &&
 		     !(IP6CB(skb)->flags & IP6SKB_FORWARDED)) ||
 		     ipv6_chk_mcast_addr(dev, daddr, &hdr->saddr))) {

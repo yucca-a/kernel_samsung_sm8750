@@ -470,7 +470,14 @@ static void spi_shutdown(struct device *dev)
 	}
 }
 
+/* Keep the legacy module field synchronized by the driver core. */
+static const char **spi_legacy_driver_override(struct device *dev)
+{
+	return &to_spi_device(dev)->driver_override;
+}
+
 struct bus_type spi_bus_type = {
+	.legacy_driver_override = spi_legacy_driver_override,
 	.name		= "spi",
 	.dev_groups	= spi_dev_groups,
 	.match		= spi_match_device,

@@ -935,7 +935,7 @@ struct task_struct {
 	unsigned			in_page_owner:1;
 #endif
 #ifdef CONFIG_EVENTFD
-	/* Recursion prevention for eventfd_signal() */
+	/* Recursion prevention for eventfd_signal_one() */
 	unsigned			in_eventfd:1;
 #endif
 #ifdef CONFIG_IOMMU_SVA

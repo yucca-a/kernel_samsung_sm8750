@@ -1714,7 +1714,14 @@ static void pci_dma_cleanup(struct device *dev)
 		iommu_device_unuse_default_domain(dev);
 }
 
+/* Keep the legacy module field synchronized by the driver core. */
+static const char **pci_legacy_driver_override(struct device *dev)
+{
+	return &to_pci_dev(dev)->driver_override;
+}
+
 struct bus_type pci_bus_type = {
+	.legacy_driver_override = pci_legacy_driver_override,
 	.name		= "pci",
 	.driver_override = true,
 	.match		= pci_bus_match,

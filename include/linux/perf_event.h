@@ -453,8 +453,12 @@ struct pmu {
 	/*
 	 * context-switches callback
 	 */
+#ifdef CONFIG_X86
 	void (*sched_task)		(struct perf_event_pmu_context *pmu_ctx,
 					 struct task_struct *task, bool sched_in);
+#else
+	void (*sched_task)(struct perf_event_pmu_context *pmu_ctx, bool sched_in);
+#endif
 
 	/*
 	 * Kmem cache of PMU specific data

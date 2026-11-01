@@ -97,7 +97,14 @@ struct nh_res_table {
 
 struct nh_grp_entry {
 	struct nexthop	*nh;
-	u16		weight;
+#ifdef __GENKSYMS__
+	u8		weight;
+#else
+	union {
+		u8 weight; /* legacy byte for the original value domain */
+		u16 weight_full; /* extends into existing padding */
+	};
+#endif
 
 	union {
 		struct {
@@ -323,7 +330,7 @@ int nexthop_mpath_fill_node(struct sk_buff *skb, struct nexthop *nh,
 		struct nexthop *nhe = nhg->nh_entries[i].nh;
 		struct nh_info *nhi = rcu_dereference_rtnl(nhe->nh_info);
 		struct fib_nh_common *nhc = &nhi->fib_nhc;
-		int weight = nhg->nh_entries[i].weight;
+		int weight = nhg->nh_entries[i].weight_full;
 
 		if (fib_add_nexthop(skb, nhc, weight, rt_family, 0) < 0)
 			return -EMSGSIZE;

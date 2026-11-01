@@ -143,7 +143,6 @@ struct blkg_policy_data {
 	int				plid;
 	bool				online;
 
-	struct rcu_head			rcu_head;
 };
 
 /*

@@ -169,7 +169,7 @@ static bool vmpressure_event(struct vmpressure *vmpr,
 			continue;
 		if (level < ev->level)
 			continue;
-		eventfd_signal(ev->efd);
+		eventfd_signal_one(ev->efd);
 		ret = true;
 	}
 	mutex_unlock(&vmpr->events_lock);

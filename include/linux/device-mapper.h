@@ -363,7 +363,6 @@ struct dm_target {
 	/*
 	 * Set if this target requires stable data during writeback.
 	 */
-	bool needs_stable_writes:1;
 
 	/*
 	 * Set if this target requires that discards be split on
@@ -421,7 +420,7 @@ struct dm_target {
 	 */
 	bool flush_bypasses_map:1;
 
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, bool needs_stable_writes);
 	ANDROID_KABI_RESERVE(2);
 };
 

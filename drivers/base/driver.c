@@ -54,6 +54,11 @@ int driver_set_override(struct device *dev, const char **override,
 	if (!override || !s)
 		return -EINVAL;
 
+	if (dev->bus && dev->bus->legacy_driver_override &&
+	    override == dev->bus->legacy_driver_override(dev))
+		return __device_set_driver_override(dev, s, len);
+
+
 	/*
 	 * The stored value will be used in sysfs show callback (sysfs_emit()),
 	 * which has a length limit of PAGE_SIZE and adds a trailing newline.

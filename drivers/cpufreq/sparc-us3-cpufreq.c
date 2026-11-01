@@ -145,13 +145,19 @@ static void us3_freq_cpu_exit(struct cpufreq_policy *policy)
 	us3_freq_target(policy, 0);
 }
 
+static int us3_freq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	us3_freq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver cpufreq_us3_driver = {
 	.name = "UltraSPARC-III",
 	.init = us3_freq_cpu_init,
 	.verify = cpufreq_generic_frequency_table_verify,
 	.target_index = us3_freq_target,
 	.get = us3_freq_get,
-	.exit = us3_freq_cpu_exit,
+	.exit = us3_freq_cpu_exit_vendor_abi,
 };
 
 static int __init us3_freq_init(void)

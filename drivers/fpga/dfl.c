@@ -1874,7 +1874,7 @@ static irqreturn_t dfl_irq_handler(int irq, void *arg)
 {
 	struct eventfd_ctx *trigger = arg;
 
-	eventfd_signal(trigger);
+	eventfd_signal_one(trigger);
 	return IRQ_HANDLED;
 }
 

@@ -65,6 +65,17 @@ struct iommu_group {
 	void *owner;
 };
 
+/* The group mutex serializes callback context.  Keep the public callback ABI
+ * while supplying the precise domain on both detach and attach rollback.
+ */
+struct iommu_group_storage {
+	struct iommu_group group;
+	struct iommu_domain *removal_domain;
+};
+#define group_removal_domain(g) \
+	(container_of(g, struct iommu_group_storage, group)->removal_domain)
+
+
 struct group_device {
 	struct list_head list;
 	struct device *dev;
@@ -938,7 +949,7 @@ struct iommu_group *iommu_group_alloc(void)
 	struct iommu_group *group;
 	int ret;
 
-	group = kzalloc(sizeof(*group), GFP_KERNEL);
+	group = kzalloc(sizeof(struct iommu_group_storage), GFP_KERNEL);
 	if (!group)
 		return ERR_PTR(-ENOMEM);
 
@@ -3386,6 +3397,20 @@ bool iommu_group_dma_owner_claimed(struct iommu_group *group)
 }
 EXPORT_SYMBOL_GPL(iommu_group_dma_owner_claimed);
 
+struct iommu_domain *iommu_pasid_removal_domain(struct device *dev)
+{
+	struct iommu_group *group = iommu_group_get(dev);
+	struct iommu_domain *domain;
+
+	if (WARN_ON(!group))
+		return NULL;
+	lockdep_assert_held(&group->mutex);
+	domain = group_removal_domain(group);
+	iommu_group_put(group);
+	return domain;
+}
+EXPORT_SYMBOL_GPL(iommu_pasid_removal_domain);
+
 static int __iommu_set_group_pasid(struct iommu_domain *domain,
 				   struct iommu_group *group, ioasid_t pasid)
 {
@@ -3402,13 +3427,15 @@ static int __iommu_set_group_pasid(struct iommu_domain *domain,
 
 err_revert:
 	last_gdev = device;
+	group_removal_domain(group) = domain;
 	for_each_group_device(group, device) {
 		const struct iommu_ops *ops = dev_iommu_ops(device->dev);
 
 		if (device == last_gdev)
 			break;
-		ops->remove_dev_pasid(device->dev, pasid, domain);
+		ops->remove_dev_pasid(device->dev, pasid);
 	}
+	group_removal_domain(group) = NULL;
 	return ret;
 }
 
@@ -3419,10 +3446,12 @@ static void __iommu_remove_group_pasid(struct iommu_group *group,
 	struct group_device *device;
 	const struct iommu_ops *ops;
 
+	group_removal_domain(group) = domain;
 	for_each_group_device(group, device) {
 		ops = dev_iommu_ops(device->dev);
-		ops->remove_dev_pasid(device->dev, pasid, domain);
+		ops->remove_dev_pasid(device->dev, pasid);
 	}
+	group_removal_domain(group) = NULL;
 }
 
 /*

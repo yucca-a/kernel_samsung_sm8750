@@ -262,7 +262,7 @@ bool gzvm_ioevent_write(struct gzvm_vcpu *vcpu, __u64 addr, int len,
 	mutex_lock(&vcpu->gzvm->ioevent_lock);
 	list_for_each_entry(e, &vcpu->gzvm->ioevents, list) {
 		if (gzvm_ioevent_in_range(e, addr, len, val)) {
-			eventfd_signal(e->evt_ctx, 1);
+			eventfd_signal_one(e->evt_ctx, 1);
 			mutex_unlock(&vcpu->gzvm->ioevent_lock);
 			return true;
 		}

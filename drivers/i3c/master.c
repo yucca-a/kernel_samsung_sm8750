@@ -1499,10 +1499,17 @@ err_free_dev:
 	return ret;
 }
 
+struct i3c_device_storage {
+	struct i3c_device i3cdev;
+	struct list_head node;
+};
+#define i3c_device_ext(d) container_of(d, struct i3c_device_storage, i3cdev)
+
 static void
 i3c_master_register_new_i3c_devs(struct i3c_master_controller *master)
 {
-	struct i3c_device *i3cdev, *tmp;
+	struct i3c_device *i3cdev;
+	struct i3c_device_storage *storage, *tmp;
 	struct i3c_dev_desc *desc;
 	LIST_HEAD(i3c_unreg_devs);
 	int ret;
@@ -1516,7 +1523,7 @@ i3c_master_register_new_i3c_devs(struct i3c_master_controller *master)
 		if (desc->dev || !desc->info.dyn_addr || desc == master->this)
 			continue;
 
-		desc->dev = kzalloc(sizeof(*desc->dev), GFP_KERNEL);
+		desc->dev = kzalloc(sizeof(struct i3c_device_storage), GFP_KERNEL);
 		if (!desc->dev)
 			continue;
 
@@ -1532,23 +1539,25 @@ i3c_master_register_new_i3c_devs(struct i3c_master_controller *master)
 		if (desc->boardinfo)
 			desc->dev->dev.of_node = desc->boardinfo->of_node;
 
-		list_add_tail(&desc->dev->node, &i3c_unreg_devs);
+		list_add_tail(&i3c_device_ext(desc->dev)->node, &i3c_unreg_devs);
 	}
 
 	i3c_bus_maintenance_unlock(&master->bus);
 
-	list_for_each_entry_safe(i3cdev, tmp, &i3c_unreg_devs, node) {
+	list_for_each_entry_safe(storage, tmp, &i3c_unreg_devs, node) {
+		i3cdev = &storage->i3cdev;
 		ret = device_register(&i3cdev->dev);
 		if (ret)
 			dev_err(&master->dev, "Failed to add I3C device (err = %d)\n", ret);
 		else
-			list_del_init(&i3cdev->node);
+			list_del_init(&storage->node);
 	}
 
 	i3c_bus_maintenance_lock(&master->bus);
 
-	list_for_each_entry_safe(i3cdev, tmp, &i3c_unreg_devs, node) {
-		list_del(&i3cdev->node);
+	list_for_each_entry_safe(storage, tmp, &i3c_unreg_devs, node) {
+		i3cdev = &storage->i3cdev;
+		list_del(&storage->node);
 		desc = i3cdev->desc;
 		i3cdev->desc = NULL;
 		put_device(&i3cdev->dev);

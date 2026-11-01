@@ -245,12 +245,18 @@ static int qoriq_cpufreq_target(struct cpufreq_policy *policy,
 	return clk_set_parent(policy->clk, parent);
 }
 
+static int qoriq_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	qoriq_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver qoriq_cpufreq_driver = {
 	.name		= "qoriq_cpufreq",
 	.flags		= CPUFREQ_CONST_LOOPS |
 			  CPUFREQ_IS_COOLING_DEV,
 	.init		= qoriq_cpufreq_cpu_init,
-	.exit		= qoriq_cpufreq_cpu_exit,
+	.exit		= qoriq_cpufreq_cpu_exit_vendor_abi,
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= qoriq_cpufreq_target,
 	.get		= cpufreq_generic_get,

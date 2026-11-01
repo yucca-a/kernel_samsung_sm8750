@@ -737,7 +737,6 @@ struct dwc3_event_buffer {
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
-	struct delayed_work	nostream_work;
 	struct list_head	cancelled_list;
 	struct list_head	pending_list;
 	struct list_head	started_list;
@@ -799,6 +798,13 @@ struct dwc3_ep {
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 };
+
+struct dwc3_ep_storage {
+	struct dwc3_ep ep;
+	struct delayed_work nostream_work;
+};
+#define dwc3_ep_ext(dep) container_of(dep, struct dwc3_ep_storage, ep)
+
 
 enum dwc3_phy {
 	DWC3_PHY_UNKNOWN = 0,
@@ -1177,7 +1183,6 @@ struct dwc3_scratchpad_array {
  */
 struct dwc3 {
 	struct work_struct	drd_work;
-	struct work_struct	err_recovery_work;
 	struct dwc3_trb		*ep0_trb;
 	void			*bounce;
 	u8			*setup_buf;
@@ -1193,7 +1198,6 @@ struct dwc3 {
 	struct mutex		mutex;
 
 	/* serializes pull-up run/stop vs error recovery */
-	struct mutex		connect_mutex;
 
 	struct device		*dev;
 	struct device		*sysdev;
@@ -1311,9 +1315,7 @@ struct dwc3 {
 	enum dwc3_ep0_next	ep0_next_event;
 	enum dwc3_ep0_state	ep0state;
 	enum dwc3_link_state	link_state;
-	enum dwc3_err_state	err_state;
 
-	u32			err_recovery_count;
 
 	u16			u2sel;
 	u16			u2pel;
@@ -1409,9 +1411,19 @@ struct dwc3 {
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_USE(3, struct dwc3_abi_state *abi_state);
 	ANDROID_KABI_RESERVE(4);
 };
+
+/* Core-owned state, independent of vendor controller allocation size. */
+struct dwc3_abi_state {
+	struct dwc3 *dwc;
+	struct work_struct	err_recovery_work;
+	struct mutex		connect_mutex;
+	enum dwc3_err_state	err_state;
+	u32			err_recovery_count;
+};
+
 
 #define INCRX_BURST_MODE 0
 #define INCRX_UNDEF_LENGTH_BURST_MODE 1

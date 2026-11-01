@@ -1002,6 +1002,7 @@ struct bfq_group_data {
 struct bfq_group {
 	/* must be the first member */
 	struct blkg_policy_data pd;
+	struct rcu_head rcu_head; /* policy-owned deferred free state */
 
 	/* cached path for this blkg (see comments in bfq_bic_update_cgroup) */
 	char blkg_path[128];

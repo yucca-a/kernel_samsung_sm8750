@@ -1028,11 +1028,17 @@ static unsigned int powernv_fast_switch(struct cpufreq_policy *policy,
 	return powernv_freqs[index].frequency;
 }
 
+static int powernv_cpufreq_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	powernv_cpufreq_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver powernv_cpufreq_driver = {
 	.name		= "powernv-cpufreq",
 	.flags		= CPUFREQ_CONST_LOOPS,
 	.init		= powernv_cpufreq_cpu_init,
-	.exit		= powernv_cpufreq_cpu_exit,
+	.exit		= powernv_cpufreq_cpu_exit_vendor_abi,
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= powernv_cpufreq_target_index,
 	.fast_switch	= powernv_fast_switch,

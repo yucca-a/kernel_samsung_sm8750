@@ -499,11 +499,17 @@ out:
 	return retval;
 }
 
+static int centrino_cpu_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	centrino_cpu_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver centrino_driver = {
 	.name		= "centrino", /* should be speedstep-centrino,
 					 but there's a 16 char limit */
 	.init		= centrino_cpu_init,
-	.exit		= centrino_cpu_exit,
+	.exit		= centrino_cpu_exit_vendor_abi,
 	.verify		= cpufreq_generic_frequency_table_verify,
 	.target_index	= centrino_target,
 	.get		= get_cur_freq,

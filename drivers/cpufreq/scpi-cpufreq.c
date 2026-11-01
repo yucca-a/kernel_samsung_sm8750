@@ -185,6 +185,12 @@ static void scpi_cpufreq_exit(struct cpufreq_policy *policy)
 	kfree(priv);
 }
 
+static int scpi_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	scpi_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver scpi_cpufreq_driver = {
 	.name	= "scpi-cpufreq",
 	.flags	= CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -194,7 +200,7 @@ static struct cpufreq_driver scpi_cpufreq_driver = {
 	.attr	= cpufreq_generic_attr,
 	.get	= scpi_cpufreq_get_rate,
 	.init	= scpi_cpufreq_init,
-	.exit	= scpi_cpufreq_exit,
+	.exit	= scpi_cpufreq_exit_vendor_abi,
 	.target_index	= scpi_cpufreq_set_target,
 	.register_em	= cpufreq_register_em_with_opp,
 };

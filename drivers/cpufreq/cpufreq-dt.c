@@ -171,6 +171,12 @@ static void cpufreq_exit(struct cpufreq_policy *policy)
 	clk_put(policy->clk);
 }
 
+static int cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver dt_cpufreq_driver = {
 	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK |
 		 CPUFREQ_IS_COOLING_DEV,
@@ -178,7 +184,7 @@ static struct cpufreq_driver dt_cpufreq_driver = {
 	.target_index = set_target,
 	.get = cpufreq_generic_get,
 	.init = cpufreq_init,
-	.exit = cpufreq_exit,
+	.exit = cpufreq_exit_vendor_abi,
 	.online = cpufreq_online,
 	.offline = cpufreq_offline,
 	.register_em = cpufreq_register_em_with_opp,

@@ -209,6 +209,7 @@ struct spi_device {
 	void			*controller_state;
 	void			*controller_data;
 	char			modalias[SPI_NAME_SIZE];
+	const char		*driver_override; /* legacy alias of dev.driver_override.name */
 	struct gpio_desc	*cs_gpiod;	/* Chip select GPIO descriptor */
 	struct spi_delay	word_delay; /* Inter-word delay */
 	/* CS delays */

@@ -10,6 +10,12 @@
 
 #include "utf8n.h"
 
+struct unicode_map_storage {
+	struct unicode_map map;
+	struct rcu_head rcu;
+};
+
+
 int utf8_validate(const struct unicode_map *um, const struct qstr *str)
 {
 	if (utf8nlen(um, UTF8_NFDI, str->name, str->len) < 0)
@@ -177,7 +183,7 @@ struct unicode_map *utf8_load(unsigned int version)
 {
 	struct unicode_map *um;
 
-	um = kzalloc(sizeof(struct unicode_map), GFP_KERNEL);
+	um = kzalloc(sizeof(struct unicode_map_storage), GFP_KERNEL);
 	if (!um)
 		return ERR_PTR(-ENOMEM);
 	um->version = version;
@@ -208,7 +214,7 @@ EXPORT_SYMBOL(utf8_load);
 
 static void utf8_unload_rcu(struct rcu_head *head)
 {
-	struct unicode_map *um = container_of(head, struct unicode_map, rcu);
+	struct unicode_map *um = &container_of(head, struct unicode_map_storage, rcu)->map;
 
 	symbol_put(utf8_data_table);
 	kfree(um);
@@ -223,7 +229,7 @@ static void utf8_unload_rcu(struct rcu_head *head)
 void utf8_unload(struct unicode_map *um)
 {
 	if (um)
-		call_rcu(&um->rcu, utf8_unload_rcu);
+		call_rcu(&container_of(um, struct unicode_map_storage, map)->rcu, utf8_unload_rcu);
 }
 EXPORT_SYMBOL(utf8_unload);
 

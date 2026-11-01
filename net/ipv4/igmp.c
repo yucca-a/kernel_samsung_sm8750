@@ -201,13 +201,24 @@ static void ip_ma_put(struct ip_mc_list *im)
 	     psf;						\
 	     psf = pmc_dereference(psf->sf_next, pmc))
 
+struct ip_sf_storage {
+	struct ip_sf_list filter;
+	struct rcu_head rcu;
+};
+static void ip_sf_free_rcu(struct ip_sf_list *psf)
+{
+	struct ip_sf_storage *storage = container_of(psf, struct ip_sf_storage, filter);
+
+	kfree_rcu(storage, rcu);
+}
+
 static void ip_sf_list_clear_all(struct ip_sf_list *psf)
 {
 	struct ip_sf_list *next;
 
 	while (psf) {
 		next = rcu_dereference_protected(psf->sf_next, 1);
-		kfree_rcu(psf, rcu);
+		ip_sf_free_rcu(psf);
 		psf = next;
 	}
 }
@@ -594,7 +605,7 @@ decrease_sf_crcount:
 				else
 					rcu_assign_pointer(*psf_list,
 							   psf_next);
-				kfree_rcu(psf, rcu);
+				ip_sf_free_rcu(psf);
 				continue;
 			}
 		}
@@ -675,7 +686,7 @@ static void igmpv3_clear_zeros(struct ip_sf_list __rcu **ppsf)
 				rcu_assign_pointer(psf_prev->sf_next, psf_next);
 			else
 				rcu_assign_pointer(*ppsf, psf_next);
-			kfree_rcu(psf, rcu);
+			ip_sf_free_rcu(psf);
 		} else {
 			psf_prev = psf;
 		}
@@ -1946,7 +1957,7 @@ static int ip_mc_del1_src(struct ip_mc_list *pmc, int sfmode,
 #ifdef CONFIG_IP_MULTICAST
 		if (psf->sf_oldin &&
 		    !IGMP_V1_SEEN(in_dev) && !IGMP_V2_SEEN(in_dev)) {
-			struct ip_sf_list *dpsf = kmalloc(sizeof(*dpsf), GFP_ATOMIC);
+			struct ip_sf_list *dpsf = kmalloc(sizeof(struct ip_sf_storage), GFP_ATOMIC);
 
 			if (dpsf) {
 				*dpsf = *psf;
@@ -1959,7 +1970,7 @@ static int ip_mc_del1_src(struct ip_mc_list *pmc, int sfmode,
 			}
 		}
 #endif
-		kfree_rcu(psf, rcu);
+		ip_sf_free_rcu(psf);
 	}
 	return rv;
 }
@@ -2046,7 +2057,7 @@ static int ip_mc_add1_src(struct ip_mc_list *pmc, int sfmode,
 		psf_prev = psf;
 	}
 	if (!psf) {
-		psf = kzalloc(sizeof(*psf), GFP_ATOMIC);
+		psf = kzalloc(sizeof(struct ip_sf_storage), GFP_ATOMIC);
 		if (!psf)
 			return -ENOBUFS;
 		psf->sf_inaddr = *psfsrc;
@@ -2111,7 +2122,7 @@ static int sf_setstate(struct ip_mc_list *pmc)
 						rcu_assign_pointer(prev->sf_next, dpsf_next);
 					else
 						rcu_assign_pointer(pmc->tomb, dpsf_next);
-					kfree_rcu(dpsf, rcu);
+					ip_sf_free_rcu(dpsf);
 				}
 				psf->sf_crcount = qrv;
 				rv++;
@@ -2128,7 +2139,7 @@ static int sf_setstate(struct ip_mc_list *pmc)
 					break;
 			}
 			if (!dpsf) {
-				dpsf = kmalloc(sizeof(*dpsf), GFP_ATOMIC);
+				dpsf = kmalloc(sizeof(struct ip_sf_storage), GFP_ATOMIC);
 				if (!dpsf)
 					continue;
 				*dpsf = *psf;

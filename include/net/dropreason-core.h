@@ -263,8 +263,6 @@ enum skb_drop_reason {
 	SKB_DROP_REASON_SKB_CSUM,
 	/** @SKB_DROP_REASON_SKB_GSO_SEG: gso segmentation error */
 	SKB_DROP_REASON_SKB_GSO_SEG,
-	/** @SKB_DROP_REASON_SKB_BAD_GSO: malicious gso packet. */
-	SKB_DROP_REASON_SKB_BAD_GSO,
 	/**
 	 * @SKB_DROP_REASON_SKB_UCOPY_FAULT: failed to copy data from user space,
 	 * e.g., via zerocopy_sg_from_iter() or skb_orphan_frags_rx()
@@ -377,6 +375,10 @@ enum skb_drop_reason {
 	 * @SKB_DROP_REASON_MAX: the maximum of core drop reasons, which
 	 * shouldn't be used as a real 'reason' - only for tracing code gen
 	 */
+#ifndef __GENKSYMS__
+	/* Append new reasons so existing vendor trace consumers keep their IDs. */
+	SKB_DROP_REASON_SKB_BAD_GSO,
+#endif
 	SKB_DROP_REASON_MAX,
 
 	/**

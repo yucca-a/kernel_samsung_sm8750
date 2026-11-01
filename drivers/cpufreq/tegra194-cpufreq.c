@@ -553,6 +553,12 @@ static int tegra194_cpufreq_set_target(struct cpufreq_policy *policy,
 	return 0;
 }
 
+static int tegra194_cpufreq_exit_vendor_abi(struct cpufreq_policy *policy)
+{
+	tegra194_cpufreq_exit(policy);
+	return 0;
+}
+
 static struct cpufreq_driver tegra194_cpufreq_driver = {
 	.name = "tegra194",
 	.flags = CPUFREQ_CONST_LOOPS | CPUFREQ_NEED_INITIAL_FREQ_CHECK |
@@ -561,7 +567,7 @@ static struct cpufreq_driver tegra194_cpufreq_driver = {
 	.target_index = tegra194_cpufreq_set_target,
 	.get = tegra194_get_speed,
 	.init = tegra194_cpufreq_init,
-	.exit = tegra194_cpufreq_exit,
+	.exit = tegra194_cpufreq_exit_vendor_abi,
 	.online = tegra194_cpufreq_online,
 	.offline = tegra194_cpufreq_offline,
 	.attr = cpufreq_generic_attr,
