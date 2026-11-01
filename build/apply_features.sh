@@ -52,6 +52,22 @@ require_patch(){ # patchfile label
 ############################################################
 log "1/5 Baseband-guard"
 run_setup "$BBG_SETUP" baseband-guard || die "Baseband-guard setup failed"
+python3 - <<'PY_BBG_ONCE'
+from pathlib import Path
+p = Path('security/Makefile')
+entry = 'obj-$(CONFIG_BBG) += baseband-guard/'
+seen = False
+out = []
+for line in p.read_text().splitlines(True):
+    if line.strip() == entry:
+        if seen:
+            if out and not out[-1].strip():
+                out.pop()
+            continue
+        seen = True
+    out.append(line)
+p.write_text(''.join(out))
+PY_BBG_ONCE
 [ -f security/baseband-guard/Kconfig ] || die "Baseband-guard sources missing"
 grep -q 'security/baseband-guard/Kconfig' security/Kconfig || die "Baseband-guard Kconfig is not wired"
 grep -Fq 'obj-$(CONFIG_BBG) += baseband-guard/' security/Makefile || die "Baseband-guard Makefile is not wired"

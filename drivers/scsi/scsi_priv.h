@@ -16,6 +16,11 @@ struct scsi_host_template;
 struct Scsi_Host;
 struct scsi_nl_hdr;
 
+struct scsi_eh_work {
+	struct work_struct work;
+	struct Scsi_Host *shost;
+};
+
 #define SCSI_CMD_RETRIES_NO_LIMIT -1
 
 /*
@@ -93,6 +98,7 @@ extern enum blk_eh_timer_return scsi_timeout(struct request *req);
 extern int scsi_error_handler(void *host);
 extern enum scsi_disposition scsi_decide_disposition(struct scsi_cmnd *cmd);
 extern void scsi_eh_wakeup(struct Scsi_Host *shost, unsigned int busy);
+extern void scsi_rcu_eh_wakeup(struct work_struct *work);
 extern void scsi_eh_scmd_add(struct scsi_cmnd *);
 void scsi_eh_ready_devs(struct Scsi_Host *shost,
 			struct list_head *work_q,

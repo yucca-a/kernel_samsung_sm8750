@@ -18,16 +18,6 @@
 #include "trace.h"
 
 /*
- * UCSI_TIMEOUT_MS - PPM communication timeout
- *
- * Ideally we could use MIN_TIME_TO_RESPOND_WITH_BUSY (which is defined in UCSI
- * specification) here as reference, but unfortunately we can't. It is very
- * difficult to estimate the time it takes for the system to process the command
- * before it is actually passed to the PPM.
- */
-#define UCSI_TIMEOUT_MS		10000
-
-/*
  * UCSI_SWAP_TIMEOUT_MS - Timeout for role swap requests
  *
  * 5 seconds is close to the time it takes for CapsCounter to reach 0, so even
@@ -1197,10 +1187,21 @@ static struct fwnode_handle *ucsi_find_fwnode(struct ucsi_connector *con)
 {
 	struct fwnode_handle *fwnode;
 	int i = 1;
+	int ret;
+	u32 port;
 
-	device_for_each_child_node(con->ucsi->dev, fwnode)
-		if (i++ == con->num)
-			return fwnode;
+	device_for_each_child_node(con->ucsi->dev, fwnode) {
+		ret = fwnode_property_read_u32(fwnode, "reg", &port);
+		if (ret < 0) {
+			if (i == con->num)
+				return fwnode;
+		} else {
+			if (port == con->num - 1)
+				return fwnode;
+		}
+
+		i++;
+	}
 	return NULL;
 }
 
@@ -1760,6 +1761,8 @@ void ucsi_unregister(struct ucsi *ucsi)
 	/* Make sure that we are not in the middle of driver initialization */
 	cancel_delayed_work_sync(&ucsi->work);
 	cancel_work_sync(&ucsi->resume_work);
+
+	ucsi_debugfs_unregister(ucsi);
 
 	/* Disable notifications */
 	ucsi->ops->async_write(ucsi, UCSI_CONTROL, &cmd, sizeof(cmd));

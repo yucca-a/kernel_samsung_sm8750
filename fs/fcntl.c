@@ -304,6 +304,8 @@ static long fcntl_set_rw_hint(struct file *file, unsigned int cmd,
 	u64 __user *argp = (u64 __user *)arg;
 	u64 hint;
 
+	if (IS_IMMUTABLE(inode))
+		return -EPERM;
 	if (copy_from_user(&hint, argp, sizeof(hint)))
 		return -EFAULT;
 	if (!rw_hint_valid(hint))

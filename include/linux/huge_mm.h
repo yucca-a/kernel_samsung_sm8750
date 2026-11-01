@@ -64,6 +64,27 @@ ssize_t single_hugepage_flag_show(struct kobject *kobj,
 				  enum transparent_hugepage_flag flag);
 extern struct kobj_attribute shmem_enabled_attr;
 
+
+/*
+ * Mask of all large folio orders supported for file THP. Folios in a DAX
+ * file is never split and the MAX_PAGECACHE_ORDER limit does not apply to
+ * it.
+ */
+#define THP_ORDERS_ALL_FILE_DAX		\
+	(BIT(PMD_ORDER) | BIT(PUD_ORDER))
+#define THP_ORDERS_ALL_FILE_DEFAULT	\
+	((BIT(MAX_PAGECACHE_ORDER + 1) - 1) & ~BIT(0))
+
+/*
+ * Mask of all large folio orders supported for THP.
+ */
+#define THP_ORDERS_ALL	\
+	(THP_ORDERS_ALL_ANON | THP_ORDERS_ALL_FILE_DAX | THP_ORDERS_ALL_FILE_DEFAULT)
+
+#define TVA_SMAPS		(1 << 0)	/* Will be used for procfs */
+#define TVA_IN_PF		(1 << 1)	/* Page fault handler */
+#define TVA_ENFORCE_SYSFS	(1 << 2)	/* Obey sysfs configuration */
+
 #define HPAGE_PMD_ORDER (HPAGE_PMD_SHIFT-PAGE_SHIFT)
 #define HPAGE_PMD_NR (1<<HPAGE_PMD_ORDER)
 
@@ -82,7 +103,6 @@ extern struct kobj_attribute shmem_enabled_attr;
 /*
  * Mask of all large folio orders supported for THP.
  */
-#define THP_ORDERS_ALL		(THP_ORDERS_ALL_ANON | THP_ORDERS_ALL_FILE)
 
 #define TVA_SMAPS		(1 << 0)	/* Will be used for procfs */
 #define TVA_IN_PF		(1 << 1)	/* Page fault handler */

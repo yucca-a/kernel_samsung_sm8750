@@ -44,6 +44,7 @@
 #ifndef __GENKSYMS__
 #include <net/xfrm.h>
 #endif
+#include <net/secure_seq.h>
 
 #include <linux/seq_file.h>
 #include <linux/memcontrol.h>
@@ -463,7 +464,9 @@ struct sock *tcp_v4_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
 				  struct request_sock *req,
 				  struct dst_entry *dst,
 				  struct request_sock *req_unhash,
-				  bool *own_req);
+				  bool *own_req,
+				  void (*opt_child_init)(struct sock *newsk,
+							 const struct sock *sk));
 int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb);
 int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len);
 int tcp_connect(struct sock *sk);
@@ -985,6 +988,7 @@ static inline bool tcp_skb_can_collapse(const struct sk_buff *to,
 {
 	return likely(tcp_skb_can_collapse_to(to) &&
 		      mptcp_skb_can_collapse(to, from) &&
+		      !skb_cmp_decrypted(to, from) &&
 		      skb_pure_zcopy_same(to, from));
 }
 
@@ -1475,6 +1479,11 @@ static inline int tcp_space(const struct sock *sk)
 static inline int tcp_full_space(const struct sock *sk)
 {
 	return tcp_win_from_space(sk, READ_ONCE(sk->sk_rcvbuf));
+}
+
+static inline u32 tcp_dst_advmss(const struct dst_entry *dst)
+{
+	return max_t(u32, dst_metric_advmss(dst), TCP_MIN_MSS);
 }
 
 static inline void __tcp_adjust_rcv_ssthresh(struct sock *sk, u32 new_ssthresh)
@@ -2188,8 +2197,9 @@ struct tcp_request_sock_ops {
 				       struct sk_buff *skb,
 				       struct flowi *fl,
 				       struct request_sock *req);
-	u32 (*init_seq)(const struct sk_buff *skb);
-	u32 (*init_ts_off)(const struct net *net, const struct sk_buff *skb);
+	union tcp_seq_and_ts_off (*init_seq_and_ts_off)(
+					const struct net *net,
+					const struct sk_buff *skb);
 	int (*send_synack)(const struct sock *sk, struct dst_entry *dst,
 			   struct flowi *fl, struct request_sock *req,
 			   struct tcp_fastopen_cookie *foc,
@@ -2515,6 +2525,11 @@ static inline int tcp_call_bpf_3arg(struct sock *sk, int op, u32 arg1, u32 arg2,
 	return tcp_call_bpf(sk, op, 3, args);
 }
 
+static inline void tcp_clear_sock_ops_cb_flags(struct sock *sk)
+{
+	tcp_sk(sk)->bpf_sock_ops_cb_flags = 0;
+}
+
 #else
 static inline int tcp_call_bpf(struct sock *sk, int op, u32 nargs, u32 *args)
 {
@@ -2530,6 +2545,10 @@ static inline int tcp_call_bpf_3arg(struct sock *sk, int op, u32 arg1, u32 arg2,
 				    u32 arg3)
 {
 	return -EPERM;
+}
+
+static inline void tcp_clear_sock_ops_cb_flags(struct sock *sk)
+{
 }
 
 #endif

@@ -62,12 +62,14 @@ int __exfat_write_inode(struct inode *inode, int sync)
 			     &ep->dentry.file.modify_time,
 			     &ep->dentry.file.modify_date,
 			     &ep->dentry.file.modify_time_cs);
+	inode_set_mtime_to_ts(inode, ts);
 	ts = inode_get_atime(inode);
 	exfat_set_entry_time(sbi, &ts,
 			     &ep->dentry.file.access_tz,
 			     &ep->dentry.file.access_time,
 			     &ep->dentry.file.access_date,
 			     NULL);
+	inode_set_atime_to_ts(inode, ts);
 
 	/* File size should be zero if there is no cluster allocated */
 	on_disk_size = i_size_read(inode);

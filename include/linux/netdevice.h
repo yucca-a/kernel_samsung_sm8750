@@ -1326,6 +1326,9 @@ struct netdev_net_notifier {
  * int (*ndo_mdb_del)(struct net_device *dev, struct nlattr *tb[],
  *		      struct netlink_ext_ack *extack);
  *	Deletes the MDB entry from dev.
+ * int (*ndo_mdb_del_bulk)(struct net_device *dev, struct nlattr *tb[],
+ *			   struct netlink_ext_ack *extack);
+ *	Bulk deletes MDB entries from dev.
  * int (*ndo_mdb_dump)(struct net_device *dev, struct sk_buff *skb,
  *		       struct netlink_callback *cb);
  *	Dumps MDB entries from dev. The first argument (marker) in the netlink
@@ -1610,9 +1613,16 @@ struct net_device_ops {
 	int			(*ndo_mdb_del)(struct net_device *dev,
 					       struct nlattr *tb[],
 					       struct netlink_ext_ack *extack);
+	int			(*ndo_mdb_del_bulk)(struct net_device *dev,
+						    struct nlattr *tb[],
+						    struct netlink_ext_ack *extack);
 	int			(*ndo_mdb_dump)(struct net_device *dev,
 						struct sk_buff *skb,
 						struct netlink_callback *cb);
+	int			(*ndo_mdb_get)(struct net_device *dev,
+					       struct nlattr *tb[], u32 portid,
+					       u32 seq,
+					       struct netlink_ext_ack *extack);
 	int			(*ndo_bridge_setlink)(struct net_device *dev,
 						      struct nlmsghdr *nlh,
 						      u16 flags,
@@ -1812,6 +1822,15 @@ enum netdev_stat_type {
 	NETDEV_PCPU_STAT_DSTATS, /* struct pcpu_dstats */
 };
 
+enum netdev_reg_state {
+	NETREG_UNINITIALIZED = 0,
+	NETREG_REGISTERED,	/* completed register_netdevice */
+	NETREG_UNREGISTERING,	/* called unregister_netdevice */
+	NETREG_UNREGISTERED,	/* completed unregister todo */
+	NETREG_RELEASED,	/* called free_netdev */
+	NETREG_DUMMY,		/* dummy device for NAPI poll */
+};
+
 /**
  *	struct net_device - The DEVICE structure.
  *
@@ -1985,6 +2004,8 @@ enum netdev_stat_type {
  *	@qdisc_hash:		qdisc hash table
  *	@watchdog_timeo:	Represents the timeout that is used by
  *				the watchdog (see dev_watchdog())
+ *	@watchdog_lock:		protect watchdog_ref_held
+ *	@watchdog_ref_held:	True if the watchdog device ref is taken.
  *	@watchdog_timer:	List of timers
  *
  *	@proto_down_reason:	reason a netdev interface is held down
@@ -2326,6 +2347,8 @@ struct net_device {
 	/* These may be needed for future network-power-down code. */
 	struct timer_list	watchdog_timer;
 	int			watchdog_timeo;
+	spinlock_t		watchdog_lock;
+	bool			watchdog_ref_held;
 
 	u32                     proto_down_reason;
 
@@ -2340,13 +2363,7 @@ struct net_device {
 
 	struct list_head	link_watch_list;
 
-	enum { NETREG_UNINITIALIZED=0,
-	       NETREG_REGISTERED,	/* completed register_netdevice */
-	       NETREG_UNREGISTERING,	/* called unregister_netdevice */
-	       NETREG_UNREGISTERED,	/* completed unregister todo */
-	       NETREG_RELEASED,		/* called free_netdev */
-	       NETREG_DUMMY,		/* dummy device for NAPI poll */
-	} reg_state:8;
+	u8 reg_state;
 
 	bool dismantle;
 
@@ -3253,7 +3270,7 @@ static inline void unregister_netdevice(struct net_device *dev)
 int netdev_refcnt_read(const struct net_device *dev);
 void free_netdev(struct net_device *dev);
 void netdev_freemem(struct net_device *dev);
-int init_dummy_netdev(struct net_device *dev);
+void init_dummy_netdev(struct net_device *dev);
 
 struct net_device *netdev_get_xmit_slave(struct net_device *dev,
 					 struct sk_buff *skb,
@@ -4092,12 +4109,13 @@ int dev_change_flags(struct net_device *dev, unsigned int flags,
 int dev_set_alias(struct net_device *, const char *, size_t);
 int dev_get_alias(const struct net_device *, char *, size_t);
 int __dev_change_net_namespace(struct net_device *dev, struct net *net,
-			       const char *pat, int new_ifindex);
+			       const char *pat, int new_ifindex,
+			       struct netlink_ext_ack *extack);
 static inline
 int dev_change_net_namespace(struct net_device *dev, struct net *net,
 			     const char *pat)
 {
-	return __dev_change_net_namespace(dev, net, pat, 0);
+	return __dev_change_net_namespace(dev, net, pat, 0, NULL);
 }
 int __dev_set_mtu(struct net_device *, int);
 int dev_set_mtu(struct net_device *, int);
@@ -4696,6 +4714,9 @@ static inline void netif_addr_unlock_bh(struct net_device *dev)
 /* These functions live elsewhere (drivers/net/net_init.c, but related) */
 
 void ether_setup(struct net_device *dev);
+
+/* Allocate dummy net_device */
+struct net_device *alloc_netdev_dummy(int sizeof_priv);
 
 /* Support for loadable net-drivers */
 struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
@@ -5345,7 +5366,9 @@ static inline const char *netdev_name(const struct net_device *dev)
 
 static inline const char *netdev_reg_state(const struct net_device *dev)
 {
-	switch (dev->reg_state) {
+	u8 reg_state = READ_ONCE(dev->reg_state);
+
+	switch (reg_state) {
 	case NETREG_UNINITIALIZED: return " (uninitialized)";
 	case NETREG_REGISTERED: return "";
 	case NETREG_UNREGISTERING: return " (unregistering)";
@@ -5354,7 +5377,7 @@ static inline const char *netdev_reg_state(const struct net_device *dev)
 	case NETREG_DUMMY: return " (dummy)";
 	}
 
-	WARN_ONCE(1, "%s: unknown reg_state %d\n", dev->name, dev->reg_state);
+	WARN_ONCE(1, "%s: unknown reg_state %d\n", dev->name, reg_state);
 	return " (unknown)";
 }
 

@@ -465,7 +465,7 @@ static inline void bpf_obj_memcpy(struct btf_record *rec,
 
 	if (IS_ERR_OR_NULL(rec)) {
 		if (long_memcpy)
-			bpf_long_memcpy(dst, src, round_up(size, 8));
+			bpf_long_memcpy(dst, src, size);
 		else
 			memcpy(dst, src, size);
 		return;
@@ -488,7 +488,7 @@ static inline void copy_map_value(struct bpf_map *map, void *dst, void *src)
 
 static inline void copy_map_value_long(struct bpf_map *map, void *dst, void *src)
 {
-	bpf_obj_memcpy(map->record, dst, src, map->value_size, true);
+	bpf_obj_memcpy(map->record, dst, src, round_up(map->value_size, 8), true);
 }
 
 static inline void bpf_obj_memzero(struct btf_record *rec, void *dst, u32 size)
@@ -737,6 +737,9 @@ enum bpf_arg_type {
 	ARG_PTR_TO_TIMER,	/* pointer to bpf_timer */
 	ARG_PTR_TO_KPTR,	/* pointer to referenced kptr */
 	ARG_PTR_TO_DYNPTR,      /* pointer to bpf_dynptr. See bpf_type_flag for dynptr type */
+#ifndef __GENKSYMS__
+	ARG_SCALAR,		/* Preserve existing argument type numbers. */
+#endif
 	__BPF_ARG_TYPE_MAX,
 
 	/* Extended arg_types. */
@@ -910,6 +913,9 @@ static_assert(__BPF_REG_TYPE_MAX <= BPF_BASE_TYPE_LIMIT);
  */
 struct bpf_insn_access_aux {
 	enum bpf_reg_type reg_type;
+#ifndef __GENKSYMS__
+	bool is_ldsx; /* Fits the existing padding before the aligned union. */
+#endif
 	union {
 		int ctx_field_size;
 		struct {
@@ -1265,11 +1271,16 @@ int bpf_dynptr_check_size(u32 size);
 u32 __bpf_dynptr_size(const struct bpf_dynptr_kern *ptr);
 
 #ifdef CONFIG_BPF_JIT
-int bpf_trampoline_link_prog(struct bpf_tramp_link *link, struct bpf_trampoline *tr);
-int bpf_trampoline_unlink_prog(struct bpf_tramp_link *link, struct bpf_trampoline *tr);
+int bpf_trampoline_link_prog(struct bpf_tramp_link *link,
+			     struct bpf_trampoline *tr,
+			     struct bpf_prog *tgt_prog);
+int bpf_trampoline_unlink_prog(struct bpf_tramp_link *link,
+			       struct bpf_trampoline *tr,
+			       struct bpf_prog *tgt_prog);
 struct bpf_trampoline *bpf_trampoline_get(u64 key,
 					  struct bpf_attach_target_info *tgt_info);
 void bpf_trampoline_put(struct bpf_trampoline *tr);
+void bpf_trampoline_set_flags(struct bpf_trampoline *tr, u32 flags);
 int arch_prepare_bpf_dispatcher(void *image, void *buf, s64 *funcs, int num_funcs);
 
 /*
@@ -1347,12 +1358,14 @@ void bpf_jit_uncharge_modmem(u32 size);
 bool bpf_prog_has_trampoline(const struct bpf_prog *prog);
 #else
 static inline int bpf_trampoline_link_prog(struct bpf_tramp_link *link,
-					   struct bpf_trampoline *tr)
+					   struct bpf_trampoline *tr,
+					   struct bpf_prog *tgt_prog)
 {
 	return -ENOTSUPP;
 }
 static inline int bpf_trampoline_unlink_prog(struct bpf_tramp_link *link,
-					     struct bpf_trampoline *tr)
+					     struct bpf_trampoline *tr,
+					     struct bpf_prog *tgt_prog)
 {
 	return -ENOTSUPP;
 }
@@ -1362,6 +1375,7 @@ static inline struct bpf_trampoline *bpf_trampoline_get(u64 key,
 	return NULL;
 }
 static inline void bpf_trampoline_put(struct bpf_trampoline *tr) {}
+static inline void bpf_trampoline_set_flags(struct bpf_trampoline *tr, u32 flags) {}
 #define DEFINE_BPF_DISPATCHER(name)
 #define DECLARE_BPF_DISPATCHER(name)
 #define BPF_DISPATCHER_FUNC(name) bpf_dispatcher_nop_func
@@ -1513,6 +1527,19 @@ struct bpf_prog_aux {
 	};
 	ANDROID_KABI_RESERVE(1);
 };
+
+/* Allocator-owned state; bpf_prog_aux keeps its vendor-visible layout. */
+struct bpf_prog_aux_storage {
+	struct bpf_prog_aux aux;
+	bool is_extended;
+	u64 prog_array_member_cnt;
+	struct mutex ext_mutex;
+};
+
+static inline struct bpf_prog_aux_storage *bpf_prog_aux_ext(struct bpf_prog_aux *aux)
+{
+	return container_of(aux, struct bpf_prog_aux_storage, aux);
+}
 
 struct bpf_prog {
 	u16			pages;		/* Number of allocated pages */
@@ -2469,7 +2496,7 @@ int btf_struct_access(struct bpf_verifier_log *log,
 bool btf_struct_ids_match(struct bpf_verifier_log *log,
 			  const struct btf *btf, u32 id, int off,
 			  const struct btf *need_btf, u32 need_type_id,
-			  bool strict);
+			  bool strict, bool walk_flex_arrays);
 
 int btf_distill_func_proto(struct bpf_verifier_log *log,
 			   struct btf *btf,
@@ -2793,6 +2820,11 @@ static inline void bpf_dynptr_set_rdonly(struct bpf_dynptr_kern *ptr)
 {
 }
 #endif /* CONFIG_BPF_SYSCALL */
+
+static inline bool bpf_net_capable(void)
+{
+	return capable(CAP_NET_ADMIN) || capable(CAP_SYS_ADMIN);
+}
 
 static __always_inline int
 bpf_probe_read_kernel_common(void *dst, u32 size, const void *unsafe_ptr)
@@ -3265,6 +3297,12 @@ static inline gfp_t bpf_memcg_flags(gfp_t flags)
 	if (memcg_bpf_enabled())
 		return flags | __GFP_ACCOUNT;
 	return flags;
+}
+
+static inline bool bpf_prog_is_raw_tp(const struct bpf_prog *prog)
+{
+	return prog->type == BPF_PROG_TYPE_TRACING &&
+	       prog->expected_attach_type == BPF_TRACE_RAW_TP;
 }
 
 #endif /* _LINUX_BPF_H */

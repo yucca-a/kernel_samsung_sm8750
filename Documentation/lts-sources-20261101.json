@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.156.tar.xz",
+    "sha256": "aee2264a4eaf4a14344b47a0469bd42e8b4885b24f110b724262b3da956f411d",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/incr/patch-6.6.156-157.xz",
+    "sha256": "f51e56a0879f53b1104a15772cb05ac1a743936ee0766c4fef4ba9033110836b",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/incr/patch-6.6.157-158.xz",
+    "sha256": "435b114c2026c8cd04c25e43c0d793ce71e6debf7ef1d8d5f82ae0aed81aca94",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/incr/patch-6.6.158-159.xz",
+    "sha256": "6a916cad93f3c0618a0116afff086bf8ab6c1724b2c3fbd01b3d4cc87b4e0146",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/incr/patch-6.6.159-160.xz",
+    "sha256": "fc43ddd0136ee600af2898fb3ecdf9f225156eb6acfa29535d30584538726e77",
+    "verified": true
+  },
+  {
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/incr/patch-6.6.160-161.xz",
+    "sha256": "3696c3d04c20abedcaa61ab55ef5f89a0af225d58bdb852de928903e76dd8ca8",
+    "verified": true
+  }
+]

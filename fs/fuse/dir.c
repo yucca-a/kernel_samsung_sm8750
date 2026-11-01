@@ -500,7 +500,7 @@ int fuse_lookup_name(struct super_block *sb, u64 nodeid, const struct qstr *name
 	FUSE_ARGS(args);
 	struct fuse_entry_bpf bpf_arg = {0};
 	struct fuse_forget_link *forget;
-	u64 attr_version;
+	u64 attr_version, evict_ctr;
 	int err;
 
 	*inode = NULL;
@@ -514,6 +514,7 @@ int fuse_lookup_name(struct super_block *sb, u64 nodeid, const struct qstr *name
 		goto out;
 
 	attr_version = fuse_get_attr_version(fm->fc);
+	evict_ctr = fuse_get_evict_ctr(fm->fc);
 
 	fuse_lookup_init(fm->fc, &args, nodeid, name, outarg, &bpf_arg.out);
 	err = fuse_simple_request(fm, &args);
@@ -572,7 +573,7 @@ int fuse_lookup_name(struct super_block *sb, u64 nodeid, const struct qstr *name
 
 		*inode = fuse_iget(sb, outarg->nodeid, outarg->generation,
 				&outarg->attr, ATTR_TIMEOUT(outarg),
-				attr_version);
+				attr_version, evict_ctr);
 				
 	}
 
@@ -890,7 +891,7 @@ static int fuse_create_open(struct inode *dir, struct dentry *entry,
 	ff->open_flags = outopen.open_flags;
 	fuse_passthrough_setup(fc, ff, &outopen);
 	inode = fuse_iget(dir->i_sb, outentry.nodeid, outentry.generation,
-			  &outentry.attr, ATTR_TIMEOUT(&outentry), 0);
+			  &outentry.attr, ATTR_TIMEOUT(&outentry), 0, 0);
 	if (!inode) {
 		flags &= ~(O_CREAT | O_EXCL | O_TRUNC);
 		fuse_sync_release(NULL, ff, flags);
@@ -1018,7 +1019,7 @@ static int create_new_entry(struct fuse_mount *fm, struct fuse_args *args,
 		goto out_put_forget_req;
 
 	inode = fuse_iget(dir->i_sb, outarg.nodeid, outarg.generation,
-			  &outarg.attr, ATTR_TIMEOUT(&outarg), 0);
+			  &outarg.attr, ATTR_TIMEOUT(&outarg), 0, 0);
 	if (!inode) {
 		fuse_queue_forget(fm->fc, forget, outarg.nodeid, 1);
 		return -ENOMEM;
@@ -2117,12 +2118,12 @@ int fuse_flush_times(struct inode *inode, struct fuse_file *ff)
 	memset(&outarg, 0, sizeof(outarg));
 
 	inarg.valid = FATTR_MTIME;
-	inarg.mtime = inode->i_mtime.tv_sec;
-	inarg.mtimensec = inode->i_mtime.tv_nsec;
+	inarg.mtime = inode_get_mtime_sec(inode);
+	inarg.mtimensec = inode_get_mtime_nsec(inode);
 	if (fm->fc->minor >= 23) {
 		inarg.valid |= FATTR_CTIME;
-		inarg.ctime = inode_get_ctime(inode).tv_sec;
-		inarg.ctimensec = inode_get_ctime(inode).tv_nsec;
+		inarg.ctime = inode_get_ctime_sec(inode);
+		inarg.ctimensec = inode_get_ctime_nsec(inode);
 	}
 	if (ff) {
 		inarg.valid |= FATTR_FH;
@@ -2272,7 +2273,7 @@ int fuse_do_setattr(struct dentry *dentry, struct iattr *attr,
 	/* the kernel maintains i_mtime locally */
 	if (trust_local_cmtime) {
 		if (attr->ia_valid & ATTR_MTIME)
-			inode->i_mtime = attr->ia_mtime;
+			inode_set_mtime_to_ts(inode, attr->ia_mtime);
 		if (attr->ia_valid & ATTR_CTIME)
 			inode_set_ctime_to_ts(inode, attr->ia_ctime);
 		/* FIXME: clear I_DIRTY_SYNC? */
@@ -2288,7 +2289,7 @@ int fuse_do_setattr(struct dentry *dentry, struct iattr *attr,
 
 	fuse_change_attributes_common(inode, &outarg.attr, NULL,
 				      ATTR_TIMEOUT(&outarg),
-				      fuse_get_cache_mask(inode));
+				      fuse_get_cache_mask(inode), 0);
 	oldsize = inode->i_size;
 	/* see the comment in fuse_change_attributes() */
 	if (!is_wb || is_truncate)

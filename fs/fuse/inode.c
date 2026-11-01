@@ -168,6 +168,14 @@ static void fuse_evict_inode(struct inode *inode)
 			fuse_cleanup_submount_lookup(fc, fi->submount_lookup);
 			fi->submount_lookup = NULL;
 		}
+		/*
+		 * Evict of non-deleted inode may race with outstanding
+		 * LOOKUP/READDIRPLUS requests and result in inconsistency when
+		 * the request finishes.  Deal with that here by bumping a
+		 * counter that can be compared to the starting value.
+		 */
+		if (inode->i_nlink > 0)
+			atomic64_inc(&fc->evict_ctr);
 	}
 	if (S_ISREG(inode->i_mode) && !fuse_is_bad(inode)) {
 		WARN_ON(!list_empty(&fi->write_files));
@@ -233,17 +241,30 @@ static void fuse_fill_attr_from_inode(struct fuse_attr *attr,
 
 void fuse_change_attributes_common(struct inode *inode, struct fuse_attr *attr,
 				   struct fuse_statx *sx,
-				   u64 attr_valid, u32 cache_mask)
+				   u64 attr_valid, u32 cache_mask,
+				   u64 evict_ctr)
 {
 	struct fuse_conn *fc = get_fuse_conn(inode);
 	struct fuse_inode *fi = get_fuse_inode(inode);
 
 	lockdep_assert_held(&fi->lock);
 
+	/*
+	 * Clear basic stats from invalid mask.
+	 *
+	 * Don't do this if this is coming from a fuse_iget() call and there
+	 * might have been a racing evict which would've invalidated the result
+	 * if the attr_version would've been preserved.
+	 *
+	 * !evict_ctr -> this is create
+	 * fi->attr_version != 0 -> this is not a new inode
+	 * evict_ctr == fuse_get_evict_ctr() -> no evicts while during request
+	 */
+	if (!evict_ctr || fi->attr_version || evict_ctr == fuse_get_evict_ctr(fc))
+		set_mask_bits(&fi->inval_mask, STATX_BASIC_STATS, 0);
+
 	fi->attr_version = atomic64_inc_return(&fc->attr_version);
 	fi->i_time = attr_valid;
-	/* Clear basic stats from invalid mask */
-	set_mask_bits(&fi->inval_mask, STATX_BASIC_STATS, 0);
 
 	inode->i_ino     = fuse_squash_ino(attr->ino);
 	inode->i_mode    = (inode->i_mode & S_IFMT) | (attr->mode & 07777);
@@ -257,12 +278,10 @@ void fuse_change_attributes_common(struct inode *inode, struct fuse_attr *attr,
 	attr->mtimensec = min_t(u32, attr->mtimensec, NSEC_PER_SEC - 1);
 	attr->ctimensec = min_t(u32, attr->ctimensec, NSEC_PER_SEC - 1);
 
-	inode->i_atime.tv_sec   = attr->atime;
-	inode->i_atime.tv_nsec  = attr->atimensec;
+	inode_set_atime(inode, attr->atime, attr->atimensec);
 	/* mtime from server may be stale due to local buffered write */
 	if (!(cache_mask & STATX_MTIME)) {
-		inode->i_mtime.tv_sec   = attr->mtime;
-		inode->i_mtime.tv_nsec  = attr->mtimensec;
+		inode_set_mtime(inode, attr->mtime, attr->mtimensec);
 	}
 	if (!(cache_mask & STATX_CTIME)) {
 		inode_set_ctime(inode, attr->ctime, attr->ctimensec);
@@ -324,9 +343,9 @@ u32 fuse_get_cache_mask(struct inode *inode)
 	return STATX_MTIME | STATX_CTIME | STATX_SIZE;
 }
 
-void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
-			    struct fuse_statx *sx,
-			    u64 attr_valid, u64 attr_version)
+static void fuse_change_attributes_i(struct inode *inode, struct fuse_attr *attr,
+				     struct fuse_statx *sx, u64 attr_valid,
+				     u64 attr_version, u64 evict_ctr)
 {
 	struct fuse_conn *fc = get_fuse_conn(inode);
 	struct fuse_inode *fi = get_fuse_inode(inode);
@@ -345,12 +364,12 @@ void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
 		attr->size = i_size_read(inode);
 
 	if (cache_mask & STATX_MTIME) {
-		attr->mtime = inode->i_mtime.tv_sec;
-		attr->mtimensec = inode->i_mtime.tv_nsec;
+		attr->mtime = inode_get_mtime_sec(inode);
+		attr->mtimensec = inode_get_mtime_nsec(inode);
 	}
 	if (cache_mask & STATX_CTIME) {
-		attr->ctime = inode_get_ctime(inode).tv_sec;
-		attr->ctimensec = inode_get_ctime(inode).tv_nsec;
+		attr->ctime = inode_get_ctime_sec(inode);
+		attr->ctimensec = inode_get_ctime_nsec(inode);
 	}
 
 	if ((attr_version != 0 && fi->attr_version > attr_version) ||
@@ -359,8 +378,9 @@ void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
 		return;
 	}
 
-	old_mtime = inode->i_mtime;
-	fuse_change_attributes_common(inode, attr, sx, attr_valid, cache_mask);
+	old_mtime = inode_get_mtime(inode);
+	fuse_change_attributes_common(inode, attr, sx, attr_valid, cache_mask,
+				      evict_ctr);
 
 	oldsize = inode->i_size;
 	/*
@@ -401,6 +421,13 @@ void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
 		fuse_dax_dontcache(inode, attr->flags);
 }
 
+void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
+			    struct fuse_statx *sx, u64 attr_valid,
+			    u64 attr_version)
+{
+	fuse_change_attributes_i(inode, attr, sx, attr_valid, attr_version, 0);
+}
+
 static void fuse_init_submount_lookup(struct fuse_submount_lookup *sl,
 				      u64 nodeid)
 {
@@ -413,8 +440,7 @@ static void fuse_init_inode(struct inode *inode, struct fuse_attr *attr,
 {
 	inode->i_mode = attr->mode & S_IFMT;
 	inode->i_size = attr->size;
-	inode->i_mtime.tv_sec  = attr->mtime;
-	inode->i_mtime.tv_nsec = attr->mtimensec;
+	inode_set_mtime(inode, attr->mtime, attr->mtimensec);
 	inode_set_ctime(inode, attr->ctime, attr->ctimensec);
 	if (S_ISREG(inode->i_mode)) {
 		fuse_init_common(inode);
@@ -532,7 +558,8 @@ struct inode *fuse_iget_backing(struct super_block *sb, u64 nodeid,
 
 struct inode *fuse_iget(struct super_block *sb, u64 nodeid,
 			int generation, struct fuse_attr *attr,
-			u64 attr_valid, u64 attr_version)
+			u64 attr_valid, u64 attr_version,
+			u64 evict_ctr)
 {
 	struct inode *inode;
 	struct fuse_inode *fi;
@@ -596,8 +623,8 @@ retry:
 	fi->nlookup++;
 	spin_unlock(&fi->lock);
 done:
-	fuse_change_attributes(inode, attr, NULL, attr_valid, attr_version);
-
+	fuse_change_attributes_i(inode, attr, NULL, attr_valid, attr_version,
+				 evict_ctr);
 	return inode;
 }
 
@@ -1101,6 +1128,7 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	fc->initialized = 0;
 	fc->connected = 1;
 	atomic64_set(&fc->attr_version, 1);
+	atomic64_set(&fc->evict_ctr, 1);
 	get_random_bytes(&fc->scramble_key, sizeof(fc->scramble_key));
 	fc->pid_ns = get_pid_ns(task_active_pid_ns(current));
 	fc->user_ns = get_user_ns(user_ns);
@@ -1162,7 +1190,7 @@ static struct inode *fuse_get_root_inode(struct super_block *sb,
 	attr.mode = mode;
 	attr.ino = FUSE_ROOT_ID;
 	attr.nlink = 1;
-	inode = fuse_iget(sb, 1, 0, &attr, 0, 0);
+	inode = fuse_iget(sb, FUSE_ROOT_ID, 0, &attr, 0, 0, 0);
 	if (!inode)
 		return NULL;
 
@@ -1752,7 +1780,10 @@ static int fuse_fill_super_submount(struct super_block *sb,
 		return -ENOMEM;
 
 	fuse_fill_attr_from_inode(&root_attr, parent_fi);
-	root = fuse_iget(sb, parent_fi->nodeid, 0, &root_attr, 0, 0);
+	root = fuse_iget(sb, parent_fi->nodeid, 0, &root_attr, 0, 0,
+			 fuse_get_evict_ctr(fm->fc));
+	if (!root)
+		return -ENOMEM;
 	/*
 	 * This inode is just a duplicate, so it is not looked up and
 	 * its nlookup should not be incremented.  fuse_iget() does

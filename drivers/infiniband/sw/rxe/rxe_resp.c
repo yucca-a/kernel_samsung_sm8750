@@ -58,9 +58,9 @@ void rxe_resp_queue_pkt(struct rxe_qp *qp, struct sk_buff *skb)
 			(skb_queue_len(&qp->req_pkts) > 1);
 
 	if (must_sched)
-		rxe_sched_task(&qp->resp.task);
+		rxe_sched_task(&qp->recv_task);
 	else
-		rxe_run_task(&qp->resp.task);
+		rxe_run_task(&qp->recv_task);
 }
 
 static inline enum resp_states get_req(struct rxe_qp *qp,
@@ -1198,7 +1198,14 @@ finish:
 	spin_lock_irqsave(&qp->state_lock, flags);
 	if (unlikely(qp_state(qp) == IB_QPS_ERR)) {
 		spin_unlock_irqrestore(&qp->state_lock, flags);
-		return RESPST_CHK_RESOURCE;
+		/* The packet was executed and completed before the QP
+		 * moved to ERROR; it must be consumed exactly once.
+		 * Re-entering the request chain with the stale packet
+		 * would copy it into every remaining recv WQE as a new
+		 * completion.  Remaining WQEs are flushed by the drain
+		 * path at rxe_receiver() entry.
+		 */
+		return pkt ? RESPST_CLEANUP : RESPST_CHK_RESOURCE;
 	}
 	spin_unlock_irqrestore(&qp->state_lock, flags);
 
@@ -1533,7 +1540,7 @@ static void flush_recv_queue(struct rxe_qp *qp, bool notify)
 	qp->resp.wqe = NULL;
 }
 
-int rxe_responder(struct rxe_qp *qp)
+int rxe_receiver(struct rxe_qp *qp)
 {
 	struct rxe_dev *rxe = to_rdev(qp->ibqp.device);
 	enum resp_states state;

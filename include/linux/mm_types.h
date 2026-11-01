@@ -1017,7 +1017,11 @@ struct mm_struct {
 		} lru_gen;
 #endif /* CONFIG_LRU_GEN */
 
+#ifdef CONFIG_FUTEX
+		ANDROID_KABI_USE(1, atomic64_t futex_unique_id);
+#else
 		ANDROID_KABI_RESERVE(1);
+#endif
 		ANDROID_BACKPORT_USE(1, struct task_dma_buf_info *dmabuf_info);
 	} __randomize_layout;
 
