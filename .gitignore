@@ -8,3 +8,8 @@
 /KernelSU/
 /Baseband-guard/
 /SukiSU_patch/
+
+# Unified build entry caches and prepared-source metadata
+/.ccache/
+/.ccache_bin/
+/.resukisu-patch-state.json

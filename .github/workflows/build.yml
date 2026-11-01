@@ -1,58 +1,52 @@
 name: Build Kernel
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
         with:
           path: source
 
-      - name: Checkout Tooltrain
-        uses: actions/checkout@v4
-        with:
-          repository: fei-ke/toolchain_samsung_sm8750
-          path: toolchain_samsung_sm8750
-
-      - run: ls toolchain_samsung_sm8750/kernel_platform/prebuilts
-
       - name: Install Prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y git tar wget bison zip
+          sudo apt-get install -y build-essential bc bison flex libssl-dev libelf-dev libncurses-dev \
+            libfdt-dev python3 rsync cpio lz4 kmod patch device-tree-compiler dwarves \
+            git curl zip unzip zstd xz-utils ccache
 
-      - name: Download Clang
+      - name: Install Samsung clang-r510928
         run: |
-          cd toolchain_samsung_sm8750/kernel_platform/prebuilts
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz && mkdir clang-r522817 && tar -xzf clang-r522817.tar.gz -C clang-r522817
-          cd ../../..
+          mkdir -p toolchain_samsung_sm8750/kernel_platform/prebuilts
+          curl -fL --retry 3 -o toolchain.tar.zst \
+            https://github.com/yucca-a/sm8750-toolchain/releases/download/clang-r510928/sm8750-toolchain-clang-r510928.tar.zst
+          tar --zstd -xf toolchain.tar.zst -C toolchain_samsung_sm8750/kernel_platform/prebuilts
 
-      - name: Build
+      - name: Checkout AnyKernel3
+        uses: actions/checkout@v4
+        with:
+          repository: fei-ke/AnyKernel3
+          ref: s25
+          path: AnyKernel3_s25
+
+      - name: Check and Build
+        working-directory: source
         run: |
-          cd source
-          ./build.sh
+          ./build.sh lkm --pack --jobs 2 --check
+          ./build.sh lkm --pack --jobs 2
 
-      - name: Upload Artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel
+          name: SM8750-lkm
+          if-no-files-found: error
           path: |
-            source/out/arch/arm64/boot/Image
-
-      - name: Collect zip name
-        run: |
-          echo "zip_name=$(basename -s .zip source/out/AnyKernel3/*.zip)" >> $GITHUB_ENV
-
-      - name: Pack AnyKernel3
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.zip_name }}
-          path: |
-            source/out/AnyKernel3/*
-            !source/out/AnyKernel3/*.zip
-
+            source/out/lkm/arch/arm64/boot/Image
+            source/out/lkm/SM8750_*.zip

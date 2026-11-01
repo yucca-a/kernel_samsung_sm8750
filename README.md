@@ -1,64 +1,17 @@
-<a id="中文"></a>
-
-**简体中文** · [English ↓](#english)
-
 # kernel_samsung_sm8750
 
-> 2026-09-09 更新：LTS 6.6.156；移除全部 Wild 性能/日志/唤醒调优。
-> 保留 BBR、ZRAM LZ4、Unicode、Droidspaces、ipset 等现有功能。
-> ReSukiSU 固定至 `f1dd81dc`，SuSFS 更新至 2.3.0，Re:Kernel 使用官方 11.6 + Generic Netlink；上一组 LKM / ReSukiSU 已通过真机启动与 Freezer 连接测试。
-> ZeroMount 内核补丁源 `c2cb7161` 尚无更新，保留现有兼容修复。
-> ZRAM/LZ4 和 ipset 沿用本 LTS 系列的内核实现及修复；它们不是独立的用户态软件包。
-> 已验证发布：[LKM](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-lkm-fac1e80) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-resukisu-fac1e80)
-> IP_SET / `xt_set` 测试发布（CI 已通过，待真机复测）：[LKM](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-lkm-1fe9754) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-resukisu-1fe9754)
+**维护策略：仅维护 LKM 兼容内核，以 KernelSU 官方 LKM 为适配目标。**
 
-> 面向骁龙 8 Elite（SM8750）三星 Galaxy S25 的自定义 Android GKI 内核，基于 Google ACK 真实合并基线。
+本仓库构建 Samsung SM8750 的自定义内核，基线为 Linux 6.6.156 / Android 15 / KMI 8。
+内核不内置 Root 实现，也不生成或附带 `kernelsu.ko`；Root 需要用户另行安装匹配的官方 KernelSU 模块。
+LKM 是加载方式，其他 KernelSU 分支也可能提供 LKM；本项目的主要适配目标是官方实现。
+实际设备的模块加载、KMI 与启动兼容性仍需验证。
 
-![SoC](https://img.shields.io/badge/SoC-Snapdragon_8_Elite-0a7bbb)
-![Android](https://img.shields.io/badge/Android-15-3ddc84)
-![Kernel](https://img.shields.io/badge/Linux-6.6.156-f6a500)
-![KMI](https://img.shields.io/badge/KMI-android15--8-9aa0a6)
-![Base](https://img.shields.io/badge/Base-Google_ACK-4285f4)
-![Root](https://img.shields.io/badge/Root-ReSukiSU%20%2B%20SUSFS%20%2B%20ZeroMount-c2185b)
-![License](https://img.shields.io/badge/License-GPL--2.0-2962ff)
+从 2026-11-01 起停止构建 ReSukiSU，移除它的源码下载、Kconfig/Makefile 接入以及 SUSFS、ZeroMount、KPM 的专用集成。
+`resukisu` 参数和启用旧特性的环境变量会报错，避免生成与调用者预期不同的镜像。
+旧版本说明保留在 [UPDATE-20260909.md](UPDATE-20260909.md) 和 Git 历史中，不代表当前构建功能或验证结果。
 
-面向 **Galaxy S25**（以及 S25 Edge）的自定义内核，基于 **Google ACK `android15-6.6`**、叠加三星 vendor 源，并前向合并至最新 6.6.x LTS，搭载 Android 15（KMI generation 8）。
-
-> **定位**：本树主要面向 **Samsung 设备**，也只在 Samsung 机型上测试与发布。因为合并了上游 LTS，它理论上也能跑在同 SoC 的其他设备上，但这一点不作保证。
-
-本树是 **ACK-rebased** 的：通过为三星 vendor 包重建一个真实的 Google ACK 合并基线、再把 `android15-6.6` LTS `git merge` 进去得到（基线是真正的合并结果，而非重新 diff 的 tarball）。每个新的 LTS（6.6.139、6.6.140…）都在独立的 ACK 工作区里继续前向合并、再导出到这里。
-
-构建是 **mode-driven** 的：git 树是干净基线，**不**提交任何 KSU / SUSFS / ZeroMount 补丁；`build/build.sh` 在编译期抓取并应用它们，同一份基线既能产出内置 root 版、也能产出纯净版，并保持对 ACK 的可持续前向合并。
-
----
-
-## ✨ 特性亮点
-
-> 三仓（sm8550 / sm8650 / sm8750）共享同一套特性集，下面这些是开箱即得的核心能力。
-
-- 🔓 **内置 Root** — ReSukiSU（KernelSU）直接编译进内核（`resukisu` 模式），刷完即 root；另有 `lkm` 纯净模式，root 留到刷入时再注入。
-- 🫥 **SUSFS 隐藏** — 把 root、挂载、路径从各类检测中隐藏起来。
-- 🧭 **ZeroMount** — 配合 SUSFS 进一步收敛挂载检测面。
-- 📡 **Baseband-guard** — LSM 级保护 modem / vbmeta / dtbo，任何 root 用户都改不动。
-- 🔔 **Re:Kernel** — 内置，提供前后台 / 网络事件通知，便于省电与后台管控。
-- 🎮 **NTSync** — Windows NT 风格同步原语，跑 Wine / Proton 游戏更顺。
-- 📦 **Droidspaces 容器** — SYSVIPC / 命名空间 / netfilter 开关，可在 Android 里跑 Linux 容器、chroot。
-- 💾 **NTFS3 读写** — OTG 上的 NTFS 盘可读写（含 LZX/XPRESS 压缩）。
-- 🗜️ **zram lz4 + BBR** — zram 默认换 lz4，TCP 默认 FQ + BBR。
-- 📁 **完整 tmpfs** — POSIX ACL / XATTR / INODE64 全开。
-- 🕸️ **完整 ipset** — 内置整套 IP set（bitmap/hash/list）及 iptables `xt_set` 匹配/目标，无需额外 LKM。
-- 🕵️ **IPv6 NAT 隐藏** — 构建期抹掉 `/proc/config.gz` 里的痕迹，绕过基于配置的 root 检测。
-- 🛡️ **三星安全栈禁用** — 关闭 UH / RKP / KDP / DEFEX / INTEGRITY / FIVE 等反 root 机制。
-- 🚀 **ccache 加速** — 增量编译提速约 60–80%。
-
-### 🔱 SM8750 独有
-
-- 🧬 **ACK-rebased 基线** — 真实的 ACK↔三星 `git merge` 基线（而非重新 diff 的快照），LTS 前向合并干净、可持续。
-- 🗄️ **FUSE passthrough 修复** — `fs/fuse/inode.c` 用的是**三星版**（FUSE passthrough / `backing_inode`），不是 ACK 版。LTS 合并最初取了 ACK 的 `inode.c`，没有初始化三星 `fuse_i.h` / `dir.c` / `file.c` 依赖的 passthrough 机制，导致 `/storage/emulated/0` FUSE 挂载异常：内部存储显示 **0 字节**、截图/下载保存失败。源自同一 vendor 包、但没打这个修复的树很可能都受影响。
-
----
-
-## 📱 支持设备
+## 支持设备
 
 面向 **Galaxy S25 系列**（骁龙 8 Elite / SM8750）。GKI 内核镜像与具体机型无关，实际覆盖范围由 AnyKernel3 的 `device.name` 列表决定。
 
@@ -67,211 +20,91 @@
 | Galaxy S25 系列 | SM8750 通用 GKI 镜像 |
 | Galaxy S25 Edge | `psq`（SM-S9370）—— 打包时显式加入设备名 |
 
----
+## 保留功能
 
-## 🌿 分支与模式
+- Re:Kernel 11.6，使用 Generic Netlink；监控操作和事件订阅要求 `CAP_NET_ADMIN`。
+- Baseband-guard LSM。
+- NTSync、Droidspaces 容器配置及相关 KABI 修复。
+- NTFS3、zram LZ4、FQ + BBR。
+- tmpfs 扩展、ipset / `xt_set`、TTL target。
+- Unicode 修复、现有 IPv6 NAT 配置处理、三星安全栈配置调整。
+- ccache、短提交版本号、平台专用工具链与配置。
 
-| 模式 | 说明 |
-|---|---|
-| `resukisu`（默认） | 内置 ReSukiSU + SUSFS + ZeroMount + 全套特性。 |
-| `lkm` | 纯净内核，不含 KSU/SUSFS/ZeroMount；root 在刷入时由管理器给 `init_boot` 打补丁注入。 |
+这些是内核功能；已移除的 SUSFS / ZeroMount 能力不会由选择 LKM 自动恢复。
 
-> `lkm` 模式产出的 `Image` 是真正干净的（零 `ksu_` 字符串）；KernelSU 管理器在刷入时打补丁，运行时用 kprobes/kallsyms 注入未改动的 vmlinux。
-
----
-
-## 🧩 完整特性一览
-
-| 特性 | resukisu | lkm | 来源 |
-|---|:---:|:---:|---|
-| ReSukiSU（KernelSU） | 内置 | 刷入时注入 | [ReSukiSU/ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) |
-| SUSFS | ✅ | ❌¹ | [ShirkNeko/susfs4ksu](https://github.com/ShirkNeko/susfs4ksu)（`gki-android15-6.6`） |
-| ZeroMount | ✅ | ❌¹ | [Enginex0/Super-Builders](https://github.com/Enginex0/Super-Builders)（`android15-6.6/ReSukiSU`） |
-| Baseband-guard | ✅ | ✅ | [vc-teahouse/Baseband-guard](https://github.com/vc-teahouse/Baseband-guard) |
-| Re:Kernel 11.6（Generic Netlink） | ✅ | ✅ | 官方源码，内置 `build/features/rekernel` |
-| NTSync（Wine/Proton） | ✅ | ✅ | Linux mainline ² |
-| Droidspaces（容器） | ✅ | ✅ | mainline 配置 + KABI 补丁 ² |
-| Unicode 绕过修复 | ✅ | ✅ | WildKernels |
-| NTFS3（+LZX/XPRESS） | ✅ | ✅ | mainline |
-| zram 默认 lz4 | ✅ | ✅ | config |
-| FQ + BBR | ✅ | ✅ | config |
-| 完整 tmpfs（ACL/XATTR/INODE64） | ✅ | ✅ | config |
-| 完整 ipset（含 `xt_set`） | ✅ | ✅ | config |
-| IPv6 NAT 隐藏 | ✅ | ✅ | 内置 `config_data` 钩子 |
-| 三星安全栈禁用 | ✅ | ✅ | 构建期 `scripts/config` 覆盖 |
-
-¹ `lkm` 模式关闭 SUSFS：`fs/susfs.c` 引用了仅在 `CONFIG_KSU=y` 时才链接的 `ksu_*` 符号。
-² NTSync、Droidspaces 等已有功能继续保留；Wild 补丁仓库仅用于 Unicode 修复和现有 Droidspaces KABI 补丁，不再应用性能、日志或唤醒调优。
-
----
-
-## 🚀 编译
+## 构建
 
 ```bash
-# resukisu（默认）：内置 ReSukiSU + SUSFS + ZeroMount + 全套特性
-build/build.sh
-build/build.sh resukisu
-
-# lkm：纯净内核（KSU 刷入时注入）
-build/build.sh lkm
-
-# 额外打包 AnyKernel3 zip
-PACK=1 build/build.sh
+./build.sh --check               # 只检查环境，不下载或修改源码
+./build.sh --jobs 16             # 默认 lkm，只编 Image
+./build.sh --pack                # 编译并生成 AnyKernel3 zip
+./build.sh lkm --pack            # 兼容显式 lkm 参数
+./build.sh --help
 ```
 
-前置：
+配置：`stock_gki_defconfig`；工具链：Samsung `clang-r510928`。
+默认工具链目录：`../toolchain_samsung_sm8750/kernel_platform/prebuilts`。
+默认 AnyKernel3 模板：`../AnyKernel3_s25`，仅打包时需要。
+SM8650 / SM8750 使用同一套 Samsung r510928 prebuilts，保留各自的 defconfig、KMI 和厂商配置。
 
-- 三星 `clang-r510928` prebuilts。`TOOLCHAIN_DIR` 默认指向 `../toolchain_samsung_sm8750/kernel_platform/prebuilts`。
-- 首次编译需联网（抓取下方钉住的特性源）。
-- ccache 存在时自动启用。
+先安装内核编译依赖与 prebuilts，`--check` 会报告缺失项。独立特性仍按脚本获取 Baseband-guard 和固定版本的 Wild 修复；
+构建不再访问 ReSukiSU/BakaSU、susfs4ksu 或 Super-Builders。
+
+| 参数 | 默认 / 作用 |
+|---|---|
+| `--mode lkm` | 唯一支持的模式，可省略 |
+| `--jobs N` / `-j N` | 默认 16 |
+| `--pack` / `--no-pack` | 默认不打包 |
+| `--out-dir DIR` | 默认 `out/lkm`；可指定仓库外或 `out/` 下的目录 |
+| `--toolchain-dir DIR` | Samsung prebuilts |
+| `--anykernel-dir DIR` | AnyKernel3 模板 |
+| `--check` | 只检查环境及旧 Root 源码残留 |
+
+命令行优先于 `MODE`、`JOBS`、`OUT_DIR`、`TOOLCHAIN_DIR`、`ANYKERNEL_DIR` 环境变量。
+相对路径以仓库根目录为基准。`BUILD_ID`（兼容别名 `BUILD_NUM`）控制版本号中的构建标识，默认源码短提交。
+`USE_CCACHE=0` 可关闭缓存；默认缓存为 `.ccache/lkm`、上限 `20G`，可通过 `CCACHE_DIR` / `CCACHE_MAXSIZE` 覆盖。
+
+`PACK=1` / `ZIP_AFTER=1` 保留为打包别名；二者冲突时需明确传 `--pack` 或 `--no-pack`。
+`PACK=1` 额外复制 zip 到仓库父目录以兼容集中 CI；`CI_ARTIFACT_DIR` 可以指定位置，设空关闭额外复制。
+普通 `--pack` 只在输出目录生成 zip。旧脚本路径也使用同一套参数处理。
 
 产物：
 
+```text
+out/lkm/arch/arm64/boot/Image
+out/lkm/SM8750_LKM_<version>_<MMDD>.zip
 ```
-out/arch/arm64/boot/Image                 # 当前模式产出的内核镜像
-../SM8750_<tag>_<版本>_<MMDD>.zip          # PACK=1 时
-```
 
-Release tag 形如 `sm8750-resukisu-d4985ff`；zip 产物仍保持
-`SM8750_resukisu_6.6.156_0614.zip` 这类命名。内核版本号形如
-`6.6.156-android15-8-YuccaA-d4985ff-4k`，其中 `d4985ff` 是源码短 commit。
+入口会锁定源码和输出目录。旧工作区如已应用内置 Root 补丁，会要求使用干净 worktree，
+不会自动 reset 用户源码；新 worktree 从提交创建，不会带入尚未提交的修改。
+最终配置必须启用模块加载和必要的探针/符号支持，并拒绝内置 KSU、SUSFS、ZeroMount、KPM 与强制模块签名配置。
+这些检查不能替代完整 Image、ABI 和真机验证。
 
----
-
-## ⚙️ 构建开关（环境变量）
-
-构建是 mode-driven 的：特性默认全开，只有 `resukisu` / `lkm` 这一个参数决定 KSU / SUSFS / ZeroMount 是否编入。
-
-| 变量 | 默认 | 作用 |
-|---|---|---|
-| `TOOLCHAIN_DIR` | `../toolchain_samsung_sm8750/kernel_platform/prebuilts` | clang-r510928 prebuilts 目录 |
-| `JOBS` | `nproc` | 并行编译任务数 |
-| `PACK` | `0` | 设 `1` 打包 AnyKernel3 zip（需 `ANYKERNEL_DIR`） |
-| `ANYKERNEL_DIR` | `../AnyKernel3_s25` | AnyKernel3 模板目录 |
-| `BUILD_ID` | 当前源码短 commit | 固定版本号里的构建代号（`BUILD_NUM` 是兼容旧 CI 的别名） |
-| `SUSFS_PIN` | 见脚本 | 覆盖 susfs4ksu 的 commit |
-| `SUPER_BUILDERS_PIN` | 见脚本 | 覆盖 Super-Builders 的 ZeroMount patch commit |
-| `WILD_PIN` | `5a5d5d8` | 覆盖 WildKernels/kernel_patches 的 commit |
-| `CCACHE_DIR` / `CCACHE_MAXSIZE` | `.ccache` / `2G` | ccache 缓存目录与上限 |
-
----
-
-## 🔐 安全与硬化
-
-- `build/build.sh` 会**禁用**三星安全栈（UH / RKP / KDP / DEFEX / INTEGRITY / FIVE）以及 `TRIM_UNUSED_KSYMS`，否则它们会对抗内核级 root 或挡住模块导出符号。当前两个模式都会应用这组构建期覆盖。
-- SUSFS / Unicode 修复 / IPv6 NAT 隐藏共同压制常见的 root 检测面。
-
----
-
-## 📦 刷入
-
-从 S25 的 Recovery（TWRP/OrangeFox）刷入 zip；或用 magiskboot 把裸 `Image` 塞进 stock `boot.img`。DTB/dtbo 取自设备现有分区，本树不重新生成。
-
----
-
-## 📜 血统与许可
-
-GPL-2.0。本树派生自：
-
-- **Google ACK** `android15-6.6`（`android.googlesource.com/kernel/common`）。
-- **三星** 为 Galaxy S25（SM8750）发布的开源内核 —— 全部三星驱动/HAL 版权归三星所有，GPL-2.0。
-- **ReSukiSU / KernelSU**、**SUSFS**（ShirkNeko）、**ZeroMount**（Super-Builders）、**WildKernels** 补丁集、**Baseband-guard**（vc-teahouse）、**Re:Kernel** —— 各自遵循其许可。
-
-本仓库自身的贡献是 ACK↔三星合并基线的重建、LTS 前向合并的冲突解决、FUSE 修复以及 mode-driven 构建系统。原始的 ACK "submitting patches" 指南保留为 [`README.ACK.md`](README.ACK.md)。
-
----
----
-
-<a id="english"></a>
-
-[简体中文 ↑](#中文) · **English**
-
-# kernel_samsung_sm8750
-
-> **2026-09-09 validated release:** Linux 6.6.156 with all Wild performance/log/wakeup tuning removed. Official Re:Kernel 11.6 uses Generic Netlink; the preceding LKM and ReSukiSU builds passed device boot and Freezer connectivity tests.
-> Downloads: [LKM](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-lkm-fac1e80) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-resukisu-fac1e80)
-> IP_SET / `xt_set` test builds (CI passed; device retest pending): [LKM](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-lkm-1fe9754) · [ReSukiSU](https://github.com/yucca-a/kernel_samsung_sm8750/releases/tag/sm8750-resukisu-1fe9754)
-
-> Custom Android GKI kernel for the Snapdragon 8 Elite (SM8750) Galaxy S25, on a real Google ACK merge base.
-
-A custom kernel for **Galaxy S25** (and S25 Edge), built on **Google ACK `android15-6.6`** with Samsung's vendor sources layered on top and merged forward to the latest 6.6.x LTS — Android 15, KMI generation 8.
-
-> **Scope:** primarily for **Samsung devices**, and tested/released on Samsung models only. Because it merges upstream LTS it can in principle run on other same-SoC devices too, but that is not guaranteed.
-
-This tree is **ACK-rebased**: it was produced by reconstructing a real Google ACK merge-base for the Samsung vendor drop and `git merge`-ing `android15-6.6` LTS into it (so the base is a true merge result, not a re-diffed tarball). Each new LTS (6.6.139, 6.6.140, …) is merged forward in a separate ACK workbench and re-exported here.
-
-The build is **mode-driven**: the git tree is a clean base with **no** KSU / SUSFS / ZeroMount patches committed; `build/build.sh` fetches and applies them at build time, so one base produces either variant and stays easy to forward-merge against ACK.
-
-## ✨ Highlights
-
-> All three trees (sm8550 / sm8650 / sm8750) share one feature set — available out of the box.
-
-- 🔓 **Built-in root** — ReSukiSU (KernelSU) compiled in (`resukisu`); or a clean `lkm` mode where root is injected at flash time.
-- 🫥 **SUSFS hiding** · 🧭 **ZeroMount** · 📡 **Baseband-guard** · 🔔 **Re:Kernel**
-- 🎮 **NTSync** (Wine/Proton) · 📦 **Droidspaces** (Linux containers) · 💾 **NTFS3** (+LZX/XPRESS)
-- 🗜️ **zram lz4 + FQ/BBR** · 📁 **Full tmpfs** (ACL/XATTR/INODE64) · 🕸️ **Full ipset suite with `xt_set`**
-- 🕵️ **IPv6 NAT hidden** from `/proc/config.gz` · 🛡️ **Samsung security stack disabled** · 🚀 **ccache**
-
-**SM8750-only:** **ACK-rebased** clean merge base for sustainable LTS forward-merges; **FUSE passthrough fix** — `fs/fuse/inode.c` is the **Samsung** version (passthrough / `backing_inode`), not the ACK one. Taking ACK's `inode.c` broke the `/storage/emulated/0` FUSE mount (internal storage reported **0 bytes**; screenshots/downloads failed to save). Snapshots from the same vendor drop without this fix are likely affected.
-
-## 📱 Supported devices
-
-Targets the **Galaxy S25 series** (Snapdragon 8 Elite / SM8750). A GKI image is device-agnostic; actual coverage is set by the AnyKernel3 `device.name` list.
-
-| Device | Notes |
-|---|---|
-| Galaxy S25 series | generic SM8750 GKI image |
-| Galaxy S25 Edge | `psq` (SM-S9370) — added to device names at packaging |
-
-## 🌿 Modes
-
-- `resukisu` (default): built-in ReSukiSU + SUSFS + ZeroMount + full set.
-- `lkm`: pure kernel (no KSU/SUSFS/ZeroMount); root injected at flash time via the manager patching `init_boot`. The `Image` is genuinely vanilla (zero `ksu_` strings).
-
-## 🧩 Feature matrix
-
-| Feature | resukisu | lkm | Source |
-|---|:---:|:---:|---|
-| ReSukiSU (KernelSU) | built-in | flash-time | ReSukiSU/ReSukiSU |
-| SUSFS | ✅ | ❌¹ | ShirkNeko/susfs4ksu (`gki-android15-6.6`) |
-| ZeroMount | ✅ | ❌¹ | Enginex0/Super-Builders (`android15-6.6/ReSukiSU`) |
-| Baseband-guard | ✅ | ✅ | vc-teahouse/Baseband-guard |
-| Re:Kernel 11.6 (Generic Netlink) | ✅ | ✅ | official source, vendored `build/features/rekernel` |
-| NTSync | ✅ | ✅ | Linux mainline ² |
-| Droidspaces | ✅ | ✅ | mainline configs + KABI shim ² |
-| Unicode bypass fix | ✅ | ✅ | WildKernels |
-| NTFS3 (+LZX/XPRESS) | ✅ | ✅ | mainline |
-| zram default lz4 / FQ+BBR | ✅ | ✅ | config |
-| Full tmpfs (ACL/XATTR/INODE64) | ✅ | ✅ | config |
-| Full ipset suite (including `xt_set`) | ✅ | ✅ | config |
-| IPv6 NAT hidden | ✅ | ✅ | in-tree `config_data` hook |
-| Samsung security stack disabled | ✅ | ✅ | `scripts/config` overrides |
-
-¹ SUSFS is off in `lkm`: `fs/susfs.c` references `ksu_*` symbols that only link with `CONFIG_KSU=y`.
-² Existing NTSync and Droidspaces functionality is retained. The Wild patch repository is used only for the Unicode fix and existing Droidspaces KABI patch; performance, log and wakeup tuning is no longer applied.
-
-## 🚀 Build
+## 验证
 
 ```bash
-build/build.sh            # resukisu (default)
-build/build.sh lkm        # pure kernel
-PACK=1 build/build.sh     # also pack an AnyKernel3 zip
+python3 scripts/test_build_entry.py
+bash build/test_feature_integration.sh
 ```
 
-Output: `out/arch/arm64/boot/Image` from the selected mode and, with `PACK=1`, `../SM8750_<tag>_<ver>_<MMDD>.zip`. Release tag example: `sm8750-resukisu-d4985ff`. Kernel release string example: `6.6.156-android15-8-YuccaA-d4985ff-4k`. Requires the Samsung `clang-r510928` prebuilts (`TOOLCHAIN_DIR` defaults to `../toolchain_samsung_sm8750/kernel_platform/prebuilts`) and network on first build; ccache is used automatically when present.
+入口测试使用模拟 make/编译器并运行真实打包脚本；验证参数、失败退出、旧模式拒绝、锁及配置保护。
+`python3 scripts/check_lkm.py source .` 可检查旧源码接入，`config <文件>` 可检查最终配置。
 
-## ⚙️ Build switches
+## 来源与许可
 
-Mode-driven — features are all on; the single `resukisu`/`lkm` arg gates KSU/SUSFS/ZeroMount. Env: `TOOLCHAIN_DIR`, `JOBS`, `PACK`, `ANYKERNEL_DIR`, `BUILD_ID`, `SUSFS_PIN`, `SUPER_BUILDERS_PIN`, `WILD_PIN`, `CCACHE_DIR`, `CCACHE_MAXSIZE`.
+GPL-2.0。三星驱动和内核、Re:Kernel、NTSync、Wild 修复、Baseband-guard 等继续保留各自的版权及许可。
+历史分支中的 ReSukiSU/KernelSU、SUSFS、ZeroMount 贡献可在 Git 历史和旧版文档中追溯；移除构建依赖不改变这些历史归属。
 
-## 🔐 Security & hardening
 
-`build/build.sh` disables Samsung's security stack (UH / RKP / KDP / DEFEX / INTEGRITY / FIVE) plus `TRIM_UNUSED_KSYMS` in both modes. SUSFS / Unicode fix / IPv6-NAT hiding reduce the common root-detection surface.
+## English
 
-## 📦 Flashing
+Only the **LKM-compatible kernel** is maintained. Official KernelSU LKM is the primary compatibility target;
+this tree contains no built-in Root implementation and does not build or bundle `kernelsu.ko`.
+Install a matching external module separately and validate it on the target Samsung firmware.
 
-Flash the zip from an S25 recovery (TWRP/OrangeFox), or drop the raw `Image` into your stock `boot.img` with magiskboot. DTB/dtbo come from existing partitions.
-
-## 📜 Lineage & license
-
-GPL-2.0, derived from **Google ACK** `android15-6.6`, Samsung's open-source Galaxy S25 (SM8750) kernel, plus ReSukiSU/KernelSU, SUSFS (ShirkNeko), ZeroMount (Super-Builders), WildKernels, Baseband-guard (vc-teahouse) and Re:Kernel — each under its own license. This repo's own contribution is the ACK↔Samsung merge-base reconstruction, the LTS forward-merge conflict resolution, the FUSE fix, and the mode-driven build system. The original ACK "submitting patches" guide is preserved as [`README.ACK.md`](README.ACK.md).
+Use `./build.sh --check`, `./build.sh --jobs 16`, or `./build.sh --pack`.
+The optional `lkm` argument remains supported; `resukisu` and retired feature enable flags are rejected.
+Outputs are `out/lkm/arch/arm64/boot/Image` and `out/lkm/SM8750_LKM_*.zip`.
+CLI paths resolve against the repository root. Toolchain: `clang-r510928`; defconfig: `stock_gki_defconfig`.
+Re:Kernel, Baseband-guard, NTSync, container support and existing independent features remain.
+SUSFS/ZeroMount are no longer integrated. Historical documentation describes earlier builds only.
