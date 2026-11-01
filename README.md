@@ -1,6 +1,12 @@
 # kernel_samsung_sm8750
 
-> 2026-11-01 LTS 候选：厂商 ABI 检查尚未通过，不能作为可刷机发布版。原维护分支保留更新前状态。详见 [LTS 更新记录](Documentation/lts-update-20261101.md)。
+> 当前维护版本：**Linux 6.6.161 · LKM-only**。已通过独立无缓存 Image 构建，以及所选厂商符号 CRC / 结构布局检查。真机启动和厂商二进制模块加载尚未验证。详见 [LTS 更新记录](Documentation/lts-update-20261101.md)。
+
+[下载最新 Release](https://github.com/yucca-a/kernel_samsung_sm8750/releases/latest) · [构建与 ABI 记录](Documentation/lts-update-20261101.md)
+
+Release 提供 AnyKernel3 ZIP、原始 Image、`SHA256SUMS`、`BUILDINFO.json` 和 `ABI-validation.json`。
+优先使用与本机 SoC、Android/KMI 和三星固件匹配的 ZIP；Image 是原始内核，不是完整 `boot.img`。
+发布包不附带 KernelSU 管理器或 `kernelsu.ko`。
 
 **维护策略：仅维护 LKM 兼容内核，以 KernelSU 官方 LKM 为适配目标。**
 
@@ -13,9 +19,9 @@ LKM 是加载方式，其他 KernelSU 分支也可能提供 LKM；本项目的�
 `resukisu` 参数和启用旧特性的环境变量会报错，避免生成与调用者预期不同的镜像。
 旧版本说明保留在 [UPDATE-20260909.md](UPDATE-20260909.md) 和 Git 历史中，不代表当前构建功能或验证结果。
 
-## 支持设备
+## 目标设备与打包范围
 
-面向 **Galaxy S25 系列**（骁龙 8 Elite / SM8750）。GKI 内核镜像与具体机型无关，实际覆盖范围由 AnyKernel3 的 `device.name` 列表决定。
+面向 **Galaxy S25 系列**（骁龙 8 Elite / SM8750）。AnyKernel3 的设备名单限定安装范围；名单匹配不代表固件、厂商模块或全部硬件已经验证兼容。
 
 | 设备 | 说明 |
 |---|---|
@@ -82,7 +88,23 @@ out/lkm/SM8750_LKM_<version>_<MMDD>.zip
 最终配置必须启用模块加载和必要的探针/符号支持，并拒绝内置 KSU、SUSFS、ZeroMount、KPM 与强制模块签名配置。
 这些检查不能替代完整 Image、ABI 和真机验证。
 
-## 验证
+## 当前 LTS 验证范围
+
+| 检查 | 结果 |
+|---|---|
+| 全新工作区、关闭 ccache 的完整 Image 构建 | 通过 |
+| Android / Galaxy / QCOM 列表内、基线实际导出的符号 | 2,730 个，CRC 差异 0 |
+| `build/vendor_abi_types.txt` 中的结构布局 | 81 个，差异 0 |
+| 构建后重复执行两次特性准备 | 源码指纹不变 |
+| 统一构建入口与 LKM 配置检查 | 通过 |
+
+对照基线为更新前的本地维护源码。检查覆盖结构大小、原字段偏移与位域宽度，
+不等同于全部内核 ABI 或任意外部模块的运行时兼容保证。模块版本检查保持开启，没有硬编码 CRC。
+真机启动、厂商模块加载、显示/基带和休眠唤醒仍需在目标设备上验证。
+
+兼容保留项：保留 Samsung NVMEM 框架，暂缓上游 device-bus 布局转换；不宣称与原版上游安全覆盖完全等价。
+
+## 构建脚本自检
 
 ```bash
 python3 scripts/test_build_entry.py
@@ -99,6 +121,11 @@ GPL-2.0。三星驱动和内核、Re:Kernel、NTSync、Wild 修复、Baseband-gu
 
 
 ## English
+
+Current LTS: **Linux 6.6.161**, LKM-only.
+[Latest release](https://github.com/yucca-a/kernel_samsung_sm8750/releases/latest) includes an AnyKernel3 ZIP, raw Image, checksums and build/ABI manifests.
+Clean builds and the scoped vendor ABI checks passed (2730 symbols and 81 layouts).
+Real-device boot and vendor binary module loading remain untested; match the SoC, firmware and KMI before use.
 
 Only the **LKM-compatible kernel** is maintained. Official KernelSU LKM is the primary compatibility target;
 this tree contains no built-in Root implementation and does not build or bundle `kernelsu.ko`.

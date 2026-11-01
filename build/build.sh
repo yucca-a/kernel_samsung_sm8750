@@ -139,6 +139,7 @@ if [ "${PACK:-0}" = "1" ]; then
   # one zip for the whole S25 family. ak3 update-binary matches any
   # device.name*= value against ro.product.device, so the index is arbitrary.
   ak="$WORK/anykernel.sh"
+  [ ! -f "$ak" ] || sed -i "s/^kernel\.string=.*/kernel.string=SM8750 LKM ${REL} by Yucca_A/" "$ak"
   if [ -f "$ak" ] && ! grep -qE '^device\.name[0-9]*=psq$' "$ak"; then
     sed -i "/^do.devicecheck=/a device.name4=psq" "$ak"
   fi
